@@ -40,6 +40,7 @@ flowchart TB
     subgraph PUB["Situs Publik — GUEST / READER"]
         H["/ Beranda"]
         P["/post/{slug} Artikel"]
+        TI["/tag Indeks topik"]
         T["/tag/{tag} Tag"]
         AR["/archive Arsip"]
         S["/search Pencarian"]
@@ -50,6 +51,7 @@ flowchart TB
         D["/admin Dashboard"]
         PL["/admin/posts Daftar artikel"]
         PE["/admin/posts/{id} Editor"]
+        TG["/admin/tags Kelola tag"]
         MD["/admin/media Pustaka media"]
         CM["/admin/comments Moderasi"]
         ST["/admin/settings Pengaturan"]
@@ -66,10 +68,10 @@ flowchart TB
 | Manajemen Artikel | **M2** | Siklus hidup artikel, slug, penjadwalan | FR-020 … FR-029 |
 | Editor | **M3** | Penyuntingan konten | FR-030 … FR-036 |
 | Media | **M4** | Unggah & pengelolaan gambar | FR-040 … FR-043 |
-| Tampilan Publik | **M5** | Halaman yang dilihat pembaca | FR-050 … FR-058 |
+| Tampilan Publik | **M5** | Halaman yang dilihat pembaca | FR-050 … FR-059 |
 | SEO & Distribusi | **M6** | Metadata, sitemap, RSS, data terstruktur | FR-060 … FR-065 |
 | Komentar | **M7** | Pengiriman & moderasi komentar | FR-070 … FR-076 |
-| Dashboard Admin | **M8** | Ringkasan, daftar, audit, pengaturan | FR-080 … FR-083 |
+| Dashboard Admin | **M8** | Ringkasan, daftar, audit, pengaturan, kelola tag | FR-080 … FR-084 |
 
 ---
 
@@ -254,7 +256,8 @@ stateDiagram-v2
 |---|---|
 | **Aktor** | `OWNER` |
 | **Input & validasi** | 0–5 tag per artikel; tiap tag 2–30 karakter; dinormalisasi menjadi huruf kecil; duplikat digabungkan |
-| **Proses** | Tag yang belum ada akan dibuat; relasi artikel–tag bersifat banyak-ke-banyak |
+| **Proses** | Editor menampilkan **saran dari tag yang sudah ada** saat owner mengetik, beserta jumlah pemakaiannya, sehingga tag lama dipakai ulang alih-alih dibuat kembar. Tag yang belum ada akan dibuat; relasi artikel–tag bersifat banyak-ke-banyak |
+| **Antarmuka** | Chip yang dapat dihapus + kolom ketik dengan daftar saran. Dapat dioperasikan penuh dengan keyboard: `Enter`/`,` menambah, `Backspace` menghapus chip terakhir, `↑`/`↓` memilih saran, `Esc` menutup |
 | **Output** | Tag tampil di halaman artikel dan menghasilkan halaman tag (FR-052) |
 | **Error** | Melebihi 5 tag → `E-POST-06` |
 | **Aturan** | **BRULE-09:** tag tanpa artikel `PUBLISHED` tidak menghasilkan halaman publik dan tidak masuk sitemap |
@@ -304,7 +307,11 @@ stateDiagram-v2
 | **Proses** | **Arsipkan:** status → `ARCHIVED`; artikel hilang dari daftar publik dan sitemap, namun URL langsung tetap dapat diakses owner. **Hapus:** status → `TRASHED` beserta stempel waktu. **Pulihkan:** `TRASHED` → `DRAFT` |
 | **Output** | Perubahan visibilitas tercermin di seluruh halaman publik setelah revalidasi |
 | **Error** | Mencoba memulihkan artikel yang slug-nya kini dipakai artikel lain → sistem meminta slug baru (`E-POST-04`) |
-| **Aturan** | **BRULE-13:** URL artikel `ARCHIVED` merespons **410 Gone** bagi publik — memberi sinyal eksplisit kepada mesin pencari, bukan 404 yang ambigu |
+| **Aturan** | **BRULE-13:** URL artikel `ARCHIVED` harus memberi sinyal de-indeks yang eksplisit kepada mesin pencari — bukan 404 yang ambigu |
+
+> **⚠ Deviasi implementasi (BRULE-13).** Next.js 16 hanya menyediakan `notFound()`, `forbidden()`, dan `unauthorized()` — yaitu 404/403/401. **Tidak ada API untuk mengirim 410 dari page component.**
+> Mitigasi yang terpasang: halaman penjelas khusus ("Tulisan ini sudah diarsipkan") + `robots: noindex` lewat `generateMetadata` + header `X-Robots-Tag: noindex` dari middleware. Sinyal de-indeks tetap tegas dan tidak tertukar dengan halaman hilang biasa, meski kode statusnya 200.
+> Akan ditinjau ulang bila Next.js menambahkan dukungan status kustom.
 
 ### FR-029 · Pratinjau draf bertoken
 > Memenuhi US-016 · BR-02
@@ -453,7 +460,9 @@ Menampilkan daftar artikel `PUBLISHED` untuk satu tag, diurutkan dari terbaru, d
 ### FR-053 · Arsip & paginasi
 > Memenuhi US-053
 
-Daftar seluruh artikel `PUBLISHED` dikelompokkan per tahun. Paginasi memakai URL yang dapat ditautkan (mis. `/archive?page=2`) — bukan gulir tak berujung — agar dapat dirayapi mesin pencari dan dibagikan.
+Daftar seluruh artikel `PUBLISHED` dikelompokkan per tahun. Paginasi memakai URL **berbasis path** yang dapat ditautkan (`/archive`, `/archive/page/2`) — bukan gulir tak berujung, dan bukan parameter kueri.
+
+> **Catatan implementasi:** path dipilih, bukan `?page=2`, karena halaman yang bergantung pada `searchParams` dipaksa menjadi dinamis oleh Next.js. Itu akan melanggar BRULE-26 dan membuat setiap permintaan pembaca menyentuh basis data. Pola yang sama berlaku untuk `/tag/<slug>/page/<n>`.
 
 > **Aturan** — **BRULE-24:** ukuran halaman tetap 20 artikel; halaman melebihi jumlah yang tersedia → **404**
 
@@ -463,7 +472,7 @@ Daftar seluruh artikel `PUBLISHED` dikelompokkan per tahun. Paginasi memakai URL
 | | |
 |---|---|
 | **Input & validasi** | Kata kunci 2–100 karakter |
-| **Proses** | Pencocokan pada judul, ringkasan, dan isi artikel `PUBLISHED`; hasil diurutkan berdasarkan relevansi lalu kebaruan |
+| **Proses** | Pencocokan pada judul, ringkasan, isi, **dan nama tag** artikel `PUBLISHED`; hasil diurutkan berdasarkan relevansi lalu kebaruan. Mencari "keamanan" menemukan artikel bertag keamanan meski kata itu tidak muncul di teksnya |
 | **Output** | Daftar hasil dengan cuplikan; keadaan kosong menyarankan penelusuran lewat tag |
 | **Error** | Kueri terlalu pendek → formulir menampilkan petunjuk, bukan galat |
 | **Aturan** | **BRULE-25:** halaman hasil pencarian ditandai `noindex` agar tidak menghasilkan halaman tipis di indeks mesin pencari |
@@ -502,6 +511,17 @@ Mengikuti preferensi sistem secara bawaan, dengan opsi pengguna untuk menimpa da
 | **Pemicu pembaruan** | Halaman di-revalidasi ketika terjadi perubahan konten (terbit, sunting, arsip, hapus, atau keputusan moderasi komentar) |
 | **Output** | Halaman tetap tersaji normal meskipun basis data sedang dalam kondisi suspend |
 | **Aturan** | **BRULE-26:** satu-satunya halaman yang boleh dirender dinamis adalah pratinjau draf (FR-029), hasil pencarian (FR-054), dan seluruh area `/admin` |
+
+### FR-059 · Indeks topik
+> Memenuhi US-052 · BR-04
+
+| | |
+|---|---|
+| **Aktor** | `GUEST`, `READER` |
+| **Deskripsi** | Halaman `/tag` memuat seluruh topik yang memiliki artikel terbit, beserta jumlah artikel per topik, diurutkan dari yang paling banyak dibahas |
+| **Proses** | Data berasal dari kueri ter-cache; halaman dirender statis (BRULE-26) |
+| **Output** | Pembaca dapat menelusuri seluruh kategori tulisan dari satu halaman; URL masuk sitemap |
+| **Aturan** | BRULE-09 tetap berlaku — topik tanpa artikel `PUBLISHED` tidak ditampilkan dan tidak masuk sitemap |
 
 ---
 
@@ -657,7 +677,7 @@ Menampilkan: jumlah artikel per status, jumlah komentar `PENDING` sebagai sorota
 
 ### FR-081 · Daftar artikel
 
-Tabel artikel berisi judul, status, tanggal terbit, tag, dan jumlah komentar. Dilengkapi penyaringan berdasarkan status/tag, pengurutan, pencarian judul, dan paginasi. Aksi massal: arsipkan dan hapus.
+Tabel artikel berisi judul, status, tanggal terbit, tag, dan jumlah komentar. Dilengkapi **penyaringan berdasarkan status dan tag** (dapat digabung), pencarian judul, dan paginasi. Seluruh filter aktif dipertahankan saat berpindah halaman atau mengubah filter lain. Aksi massal: arsipkan dan hapus.
 
 ### FR-082 · Catatan audit administratif
 > Memenuhi US-006 · BR-07
@@ -680,6 +700,22 @@ Tabel artikel berisi judul, status, tanggal terbit, tag, dan jumlah komentar. Di
 | Tampilan | Tema bawaan, jumlah artikel per halaman |
 
 Perubahan pengaturan memicu revalidasi halaman publik yang terpengaruh.
+
+### FR-084 · Kelola tag
+> Memenuhi US-052 · BR-04, BR-08
+
+| | |
+|---|---|
+| **Aktor** | `OWNER` |
+| **Deskripsi** | Halaman `/admin/tags` menampilkan seluruh tag beserta slug dan jumlah artikel, dengan tiga aksi: ganti nama, gabungkan, hapus |
+| **Ganti nama** | Mengubah **label tampilan saja**. Slug tidak disentuh (BRULE-36), sehingga tautan yang sudah tersebar tidak pernah rusak |
+| **Gabungkan** | Memindahkan seluruh artikel dari tag sumber ke tag tujuan, lalu menghapus tag sumber dan meninggalkan alias pengalihan. Memerlukan konfirmasi eksplisit karena tidak dapat dibatalkan |
+| **Hapus** | Hanya untuk tag tanpa artikel. Tag yang masih dipakai **ditolak** dengan saran untuk digabungkan — agar artikel tidak diam-diam kehilangan kategorinya |
+| **Error** | Menghapus tag terpakai → ditolak beserta jumlah artikel yang memakainya · Menggabungkan tag ke dirinya sendiri → ditolak |
+
+> **BRULE-36:** Slug tag bersifat **immutable** setelah dibuat. Mengganti nama tag hanya mengubah label tampilan. Memperbaiki slug yang salah dilakukan dengan membuat tag baru lalu menggabungkan tag lama ke dalamnya; slug lama otomatis dicatat sebagai alias dan dilayani sebagai **pengalihan permanen**, sehingga URL yang sudah terindeks tidak pernah mati. Slug alias dipesan permanen dan tidak dapat dipakai tag lain.
+>
+> **BRULE-37:** Saat dua tag digabungkan, artikel yang sudah memiliki **kedua** tag tidak boleh menghasilkan relasi ganda. Relasi yang bentrok dihapus, bukan dipindahkan — kunci utama gabungan `(postId, tagId)` menjamin hal ini ditegakkan di tingkat basis data.
 
 ---
 
@@ -805,6 +841,8 @@ Perubahan pengaturan memicu revalidasi halaman publik yang terpengaruh.
 | BRULE-33 | Hapus permanen perlu konfirmasi; tolak bersifat reversibel | FR-074 |
 | BRULE-34 | Penutupan komentar otomatis dapat dikonfigurasi | FR-076 |
 | BRULE-35 | Catatan audit bersifat hanya-tambah | FR-082 |
+| BRULE-36 | Slug tag immutable; perubahan lewat merge + alias pengalihan permanen | FR-024, FR-084 |
+| BRULE-37 | Merge tag tidak boleh menduplikasi relasi `PostTag` | FR-084 |
 
 ---
 

@@ -14,6 +14,7 @@ Keempat dokumen ini dirancang sebagai **satu sistem yang saling terhubung**, buk
 | 2 | **[PRD.md](./PRD.md)** — *Product Requirements* | **Apa** yang dibangun, untuk siapa, dan mana yang masuk MVP? | Produk & desain |
 | 3 | **[FRD.md](./FRD.md)** — *Functional Requirements* | **Bagaimana sistem berperilaku** pada setiap input, aturan, dan kondisi gagal? | Implementor & QA |
 | 4 | **[TRD.md](./TRD.md)** — *Technical Requirements* | **Bagaimana membangunnya** — arsitektur, data, keamanan, deployment? | Engineer |
+| — | **[SETUP.md](./SETUP.md)** — *Panduan penyiapan* | **Bagaimana menjalankannya** — env, OAuth, migrasi, deploy | Siapa pun yang menjalankan |
 
 > Baca berurutan bila baru pertama kali. Untuk langsung mengerjakan kode, mulai dari **TRD Lampiran B — Urutan Implementasi**, dan rujuk balik ke FRD saat butuh detail perilaku.
 
@@ -32,8 +33,8 @@ BR-##  (BRD)  →  EP-## / US-###  (PRD)  →  FR-###  (FRD)  →  TS-##  (TRD)
 | `BR-##` | Tujuan bisnis | BRD §3 | 8 |
 | `EP-##` | Epic produk | PRD §5 | 5 |
 | `US-###` | User story | PRD §5 | 44 |
-| `FR-###` | Requirement fungsional | FRD §4–§11 | 53 |
-| `BRULE-##` | Aturan bisnis | FRD (inline) · indeks di Lampiran B | 35 |
+| `FR-###` | Requirement fungsional | FRD §4–§11 | 55 |
+| `BRULE-##` | Aturan bisnis | FRD (inline) · indeks di Lampiran B | 37 |
 | `TS-##` | Spesifikasi teknis | TRD | 16 |
 | `E-*` | Kode kesalahan | FRD §12 | 25 |
 
@@ -71,12 +72,12 @@ Dikumpulkan dari seluruh dokumen. Tanda ⛔ berarti memblokir pekerjaan tertentu
 | ID | Pertanyaan | Memblokir | Sumber |
 |---|---|---|---|
 | **OQ-1** | Nama merek dan domain final? | ⛔ Konfigurasi SEO, OG image, `NEXT_PUBLIC_SITE_URL` | BRD §11 |
-| **OQ-2** | Penyedia OAuth: GitHub, Google, atau keduanya? | ⛔ Implementasi autentikasi (TS-05), variabel lingkungan | BRD §11 |
-| **OQ-3** | Komentar tamu diizinkan, atau wajib login? | ⛔ Cakupan FR-071 | BRD §11 |
+| **OQ-2** | Penyedia OAuth: GitHub, Google, atau keduanya? | *Terjawab:* **GitHub**. Masih perlu kredensial OAuth App | BRD §11 |
+| **OQ-3** | Komentar tamu diizinkan, atau wajib login? | *Terjawab:* diizinkan, dapat dimatikan di `/admin/settings` | BRD §11 |
 | **OQ-4** | Blog dipakai untuk tujuan komersial? | Menentukan kelayakan Vercel Hobby (BR-03) | BRD §11 |
 | **OQ-5** | Perlu halaman kebijakan privasi sejak v1? | Kepatuhan penyimpanan email pengomentar (C-5) | BRD §11 |
-| **OQ-6** | Komentar ditutup otomatis setelah berapa hari? | Nilai bawaan BRULE-34 | PRD §9 |
-| **OQ-7** | Pencarian: kueri sederhana atau full-text search? | Desain indeks basis data (TS-03) | PRD §9 |
+| **OQ-6** | Komentar ditutup otomatis setelah berapa hari? | *Terjawab:* bawaan tidak pernah ditutup; dapat diatur di `/admin/settings` | PRD §9 |
+| **OQ-7** | Pencarian: kueri sederhana atau full-text search? | *Terjawab:* pencocokan `contains` pada judul/ringkasan/isi/**tag** — memadai untuk <500 artikel | PRD §9 |
 
 ---
 
@@ -92,6 +93,19 @@ Dikumpulkan dari seluruh dokumen. Tanda ⛔ berarti memblokir pekerjaan tertentu
 **Legenda:** 🟡 Draft · 🔵 Dalam review · 🟢 Disetujui
 
 ---
+
+## Status Implementasi
+
+Aplikasi v1 sudah dibangun mengikuti dokumen ini. Beberapa hal **berbeda dari rencana awal** dan sudah dikoreksi di dokumen terkait — rangkuman:
+
+| Hal | Rencana | Kenyataan | Dicatat di |
+|---|---|---|---|
+| Pengalihan permanen | 301 | **308** (`permanentRedirect` Next.js; setara untuk SEO) | TRD TS-04 §4.4 |
+| Artikel terarsip | 410 Gone | **200 + noindex** — Next.js 16 tidak punya API 410 | FRD BRULE-13 |
+| Paginasi | `?page=2` | **`/archive/page/2`** — agar halaman tetap statis | FRD FR-053 |
+| Anggaran JS | < 120 KB | **174 KB baseline framework**; JS aplikasi hanya ±6 KB | TRD TS-10 §10.3 |
+| Versi Next.js | 15 | **16.3.8** | TRD §Versi terpasang |
+| Prisma | `latest` | **dipin 7.10.0** — `latest` menunjuk RC 8 | TRD §Versi terpasang |
 
 ## Catatan Verifikasi
 

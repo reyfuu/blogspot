@@ -6,7 +6,26 @@
 **Dokumen hulu:** [BRD.md](./BRD.md) · [PRD.md](./PRD.md) · [FRD.md](./FRD.md)
 **Status:** Draft — menunggu review
 
-> **Catatan versi:** nomor versi paket dan batas kuota vendor dalam dokumen ini adalah acuan perencanaan per Oktober 2026. **Wajib diverifikasi ke dokumentasi resmi** saat implementasi dimulai, karena ekosistem ini bergerak cepat.
+> **Catatan versi:** batas kuota vendor dalam dokumen ini adalah acuan perencanaan per Oktober 2026 dan wajib dikonfirmasi ke halaman resmi. Versi paket di bawah adalah **versi yang benar-benar terpasang dan terverifikasi build**, bukan perkiraan.
+
+### Versi terpasang (terverifikasi 2026-10-03)
+
+| Paket | Versi | Catatan |
+|---|---|---|
+| `next` | **16.3.8** | Bukan 15 seperti rencana awal |
+| `react` / `react-dom` | 19.3.0 | |
+| `prisma` / `@prisma/client` | **7.10.0 (dipin eksak)** | ⚠ Tag `latest` menunjuk **`8.0.0-rc.19` (release candidate)** sementara client stabil di 7.10.0. `pnpm add -D prisma` polos akan menarik RC dan memecah versi CLI vs client |
+| `@prisma/adapter-neon` | 7.10.0 | Wajib — Prisma 7 tidak lagi membaca URL dari schema |
+| `next-auth` | **5.0.0-beta.32 (dipin eksak)** | Auth.js v5 ada di tag `beta`; tag `latest` = v4 (API era Pages Router, tidak cocok App Router). Rilis beta kerap breaking → pin eksak |
+| `tailwindcss` | 4.3.3 | Konfigurasi **CSS-first** (`@import`/`@theme`); tidak ada `tailwind.config.js` |
+| `zod` | 4.6.5 | API v4 |
+| `@tiptap/*` | 3.31.4 | + `tiptap-markdown` 0.9.0 |
+| `shiki` / `@shikijs/rehype` | 4.5.0 | Pewarnaan saat render server |
+| `vitest` | 5.0.3 | |
+
+**Dependensi yang dihapus:** `next-themes` — diganti skrip inline ±10 baris (`src/components/theme-script.tsx`). Pustaka tidak sepadan untuk perilaku sekecil ini.
+
+**Runtime:** Node v26.8.2. Prisma CLI memperingatkan versi Node di luar daftar dukungannya (20.19+/22.12+/24.0+) namun berjalan normal — migrasi dan generate terverifikasi.
 
 ---
 
@@ -88,7 +107,7 @@ flowchart TB
 
 | Lapisan | Pilihan | Alasan | Alternatif yang ditolak |
 |---|---|---|---|
-| Kerangka kerja | **Next.js (App Router)** + React + TypeScript `strict` | RSC memungkinkan static-first (P1) sekaligus dashboard dinamis dalam satu basis kode; integrasi Vercel paling matang | *Astro*: sangat baik untuk konten, tetapi dashboard admin interaktif jadi kerja ekstra · *Remix*: tidak punya padanan ISR berbasis tag sekelas ini |
+| Kerangka kerja | **Next.js 16 (App Router)** + React 19 + TypeScript `strict` | RSC memungkinkan static-first (P1) sekaligus dashboard dinamis dalam satu basis kode; integrasi Vercel paling matang | *Astro*: sangat baik untuk konten, tetapi dashboard admin interaktif jadi kerja ekstra · *Remix*: tidak punya padanan ISR berbasis tag sekelas ini |
 | Basis data | **Neon Postgres (serverless)** | Postgres standar → portabel (P2); tier gratis; **branching** memberi basis data terisolasi per preview deployment | *Vercel Postgres*: lock-in lebih erat · *SQLite/Turso*: alur migrasi kurang mapan untuk kebutuhan ini · *MongoDB*: relasi artikel–tag–komentar justru lebih alami di SQL |
 | ORM | **Prisma** + adapter driver Neon | Skema deklaratif, migrasi berversi, keamanan tipe; adapter Neon memakai koneksi HTTP/WebSocket yang cocok untuk serverless | *Drizzle*: lebih ringan, tetapi Prisma lebih mudah dirawat satu orang (P4) · *SQL mentah*: tidak ada keamanan tipe maupun migrasi |
 | Autentikasi | **Auth.js (NextAuth) v5** + adapter Prisma | OAuth tanpa menyimpan kata sandi (mitigasi R-7); sesi berbasis basis data; terintegrasi dengan App Router | *Clerk/Auth0*: layanan berbayar, melanggar C-2 · *Autentikasi buatan sendiri*: risiko keamanan tidak sepadan |
@@ -99,6 +118,7 @@ flowchart TB
 | Validasi | **Zod** | Satu skema dipakai bersama oleh klien dan server; tipe diturunkan otomatis | Validasi manual: rawan tidak konsisten |
 | Pembatasan laju | **Upstash Redis** (opsional) atau tabel Postgres | Dibutuhkan FR-072; mulai dari Postgres untuk menekan jumlah vendor | — |
 | Observability | **Vercel Analytics + Speed Insights** | Data Core Web Vitals lapangan untuk BR-05 tanpa biaya | Google Analytics: beban skrip + konsekuensi privasi |
+| Tema terang/gelap | **Skrip inline ±10 baris** | Menerapkan tema sebelum paint pertama tanpa menambah dependensi klien | *next-themes*: dipakai lalu **dihapus** — menambah bundel untuk perilaku yang hanya butuh belasan baris |
 | Pengujian | **Vitest** (unit/integrasi) + **Playwright** (E2E) | Standar ekosistem; Playwright juga dipakai untuk audit aksesibilitas | — |
 
 > Memenuhi: **TS-02 → FR-005, FR-020, FR-035**
@@ -236,10 +256,23 @@ model PostSlugHistory {
 }
 
 model Tag {
-  id    String    @id @default(cuid())
-  slug  String    @unique
-  name  String
-  posts PostTag[]
+  id      String     @id @default(cuid())
+  slug    String     @unique   // BRULE-36: immutable setelah dibuat
+  name    String
+  posts   PostTag[]
+  aliases TagAlias[]
+}
+
+/// Slug tag lama yang masih harus dilayani sebagai pengalihan permanen.
+/// Dibuat saat dua tag digabungkan (FR-084) — tanpa ini, merge diam-diam
+/// mematikan URL /tag/<slug> yang sudah terindeks (BR-04).
+model TagAlias {
+  slug      String   @id       // BRULE-36: dipesan permanen
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([tagId])
 }
 
 model PostTag {
@@ -325,6 +358,8 @@ model AuditLog {
 | Indeks komposit `[status, publishedAt desc]` | Kueri paling panas (daftar publik) dilayani sepenuhnya dari indeks |
 | `role` sebagai enum, bukan boolean | Memenuhi BR-08: menambah `AUTHOR`/`EDITOR` di v2 hanya perlu memperluas enum |
 | `TRASHED` sebagai status, bukan baris terhapus | BRULE-05; pemulihan tidak butuh backup |
+| `TagAlias.slug` sebagai primary key | Menegakkan BRULE-36 di tingkat basis data: satu slug tidak mungkin menunjuk dua tag |
+| Prisma 7: URL koneksi di luar schema | Breaking change v7 — `url`/`directUrl` ditolak di `schema.prisma`. Migrasi membaca `DIRECT_URL` dari `prisma.config.ts`; runtime wajib memakai driver adapter pada konstruktor `PrismaClient` |
 
 > Memenuhi: **TS-03 → FR-005, FR-020, FR-023, FR-027, FR-035, FR-071, FR-082**
 
@@ -355,6 +390,9 @@ model AuditLog {
 | `submitComment` | `{ postId, body, parentId?, guestName?, guestEmail?, hp, renderedAt }` | GUEST/READER | Buat `PENDING` | — | `E-CMT-01…05` |
 | `moderateComment` | `{ ids[], action }` | OWNER | Transisi status | `post:{slug}` | `E-CMT-06` |
 | `updateSettings` | skema per kelompok | OWNER | Simpan pengaturan | `posts:list`, `feed` | — |
+| `renameTag` | `{ id, name }` | OWNER | Ubah label tag (slug tidak berubah) | `tag:{slug}`, `posts:list` | `E-POST-06` |
+| `mergeTags` | `{ fromId, intoId }` | OWNER | Gabungkan tag + buat alias 308 | `tag:{dua slug}`, `posts:list`, `sitemap`, `feed` | `E-SYS-01` |
+| `deleteTag` | `{ id }` | OWNER | Hapus tag yatim saja | `tag:{slug}`, `posts:list` | `E-SYS-01` |
 
 ### 4.3 Route Handlers
 
@@ -371,11 +409,15 @@ model AuditLog {
 
 ### 4.4 Kode status HTTP untuk rute publik
 
+> **Dua koreksi terhadap rencana awal, berdasarkan perilaku Next.js 16 yang terukur:**
+> - `permanentRedirect()` mengirim **308 Permanent Redirect**, bukan 301. Keduanya permanen dan diperlakukan setara oleh mesin pencari; 308 juga mempertahankan metode HTTP. Tidak ada upaya memaksa 301.
+> - **410 tidak dapat dikirim** dari page component (lihat deviasi BRULE-13 di FRD).
+
 | Situasi | Status | Sumber |
 |---|---|---|
 | Artikel terbit ditemukan | 200 | FR-051 |
-| Slug historis | **301** → slug aktif | FR-027, BRULE-12 |
-| Artikel terarsip | **410** | BRULE-13 |
+| Slug historis (artikel & tag) | **308** → slug aktif | FR-027, BRULE-12, BRULE-36 |
+| Artikel terarsip | **200** + `noindex` (lihat deviasi BRULE-13) | BRULE-13 |
 | Slug tidak dikenal / draf tanpa token | **404** | FR-029, FR-051 |
 | Halaman paginasi di luar rentang | **404** | BRULE-24 |
 
@@ -453,6 +495,10 @@ Markdown tersimpan
   → HTML siap tampil
 ```
 
+> **Catatan sanitasi (dipelajari saat implementasi):** `id` sengaja **dikeluarkan** dari daftar *clobber* hast-util-sanitize. Prefix bawaan `user-content-` hanya diterapkan pada atribut `id`, **tidak** pada `href` yang dihasilkan rehype-autolink-headings — akibatnya seluruh tautan anchor heading rusak (`href="#judul"` menunjuk elemen ber-id `user-content-judul`). Id heading berasal dari judul milik owner dan sudah dislugifikasi ke `[a-z0-9-]`, sehingga risiko DOM clobbering dapat diabaikan, sementara tautan rusak merugikan nyata.
+>
+> Sanitasi juga membuang atribut `class`. Karena itu penataan blok kode dan anchor heading menargetkan **struktur dan variabel inline** (`pre[style*='--shiki-light']`, `.prose :is(h2,h3,h4) > a`), bukan kelas — melonggarkan sanitasi demi styling adalah pertukaran yang salah.
+
 **Daftar elemen yang diizinkan:** `p, h2–h4, strong, em, del, ul, ol, li, blockquote, hr, a, code, pre, img, figure, figcaption, table, thead, tbody, tr, th, td, br`.
 **Atribut:** `href` (hanya skema `http`, `https`, `mailto`), `src`, `alt`, `title`, `width`, `height`, `id`, `colspan`, `rowspan`, `class` (hanya pada `pre`/`code`).
 Semua yang lain **dibuang**, termasuk `<script>`, `<style>`, `<iframe>`, dan seluruh atribut `on*`.
@@ -494,6 +540,10 @@ Markdown dirender menjadi HTML **saat halaman diregenerasi** (publish/edit/reval
 | Ubah pengaturan | `settings`, `posts:list`, `feed` |
 
 **Target:** perubahan tampak publik dalam **≤ 5 detik** (FR-026, FR-074).
+
+> **API yang dipakai (Next.js 16):** `updateTag(tag)` dari `next/cache`, **bukan** `revalidateTag`. Di Next 16 `revalidateTag` mewajibkan argumen kedua berupa profil cache, sementara `updateTag` dirancang khusus untuk Server Action dan memberi semantik *read-your-own-writes* — tepat seperti yang dibutuhkan FR-026: owner menekan "Terbitkan" lalu langsung melihat hasilnya.
+
+**Tag tambahan untuk tag konten:** operasi kelola tag (FR-084) meng-invalidasi `tag:{slugSumber}`, `tag:{slugTujuan}`, `posts:list`, `sitemap`, dan `feed`.
 
 ### 7.3 Aturan khusus
 
@@ -559,9 +609,34 @@ Markdown dirender menjadi HTML **saat halaman diregenerasi** (publish/edit/reval
 | INP (lapangan) | < 200 ms | Speed Insights |
 | CLS (lapangan) | < 0,1 | Speed Insights |
 | TTFB halaman publik | < 200 ms (cache hit tepi) | Header respons |
-| JavaScript rute publik | **< 120 KB** terkompresi | Analisis bundel di CI |
+| JavaScript **aplikasi** di atas baseline | **< 15 KB** gzip | Analisis bundel di CI |
+| JavaScript total rute publik | ≤ **185 KB** gzip (lihat §10.3) | Analisis bundel di CI |
 | Permintaan font | ≤ 2 berkas, dihosting sendiri | Audit |
 | Lighthouse (Performance & Accessibility) | ≥ 95 | CI pada preview |
+
+### 10.3 Anggaran JS: koreksi berdasarkan pengukuran
+
+> **Anggaran awal 120 KB tidak dapat dicapai dengan stack ini, dan sudah dikoreksi di atas.** Ini pengukuran, bukan perkiraan.
+
+Hasil ukur pada build produksi (gzip -9, 2026-10-03):
+
+| Rute | JS total (gzip) |
+|---|---|
+| `/about` — halaman paling sederhana | **174 KB** |
+| `/` beranda | 174 KB |
+| `/post/[slug]` (+ formulir komentar) | **180 KB** |
+| brotli -11 pada rute artikel | 158 KB |
+
+**Diagnosis:** 174 KB adalah **baseline React 19 + Next.js 16 App Router**, bukan kode aplikasi. Terbukti dari dua arah:
+
+1. `/about` hanya memuat satu komponen klien kecil (pengalih tema) namun tetap 174 KB — sama dengan beranda.
+2. Pemeriksaan isi 11 chunk rute publik: **`tiptap`, `prosemirror`, `shiki`, `@prisma`, dan `next-auth` tidak ditemukan sama sekali (0 dari 11 chunk)**. Chunk terbesar (229 KB mentah) berisi `react-dom`.
+
+Artinya pemisahan server/klien bekerja sebagaimana dirancang: editor, pewarna sintaks, ORM, dan pustaka autentikasi **tidak pernah** sampai ke pembaca. Kode aplikasi di atas baseline hanya ±6 KB gzip (formulir komentar).
+
+**Yang sudah dilakukan untuk menekan angka:** `next-themes` dihapus (hemat ±1 KB — membuktikan ruang optimasi ada pada framework, bukan pustaka pilihan kita).
+
+**Konsekuensi untuk BR-05:** anggaran byte bukan tujuan akhir — Core Web Vitals yang diukur di lapangan tetap menjadi gerbang sesungguhnya. Halaman artikel dapat dibaca penuh tanpa JavaScript (BRULE-23), sehingga JS tidak memblokir konten utama. Angka ini **wajib diverifikasi ulang dengan Lighthouse pada preview deployment** sebelum rilis.
 
 ### 10.2 Teknik
 
@@ -733,14 +808,14 @@ flowchart LR
 |---|---|---|
 | TS-01 | Arsitektur sistem | FR-058 dan seluruh batasan non-fungsional |
 | TS-02 | Tech stack | FR-005, FR-020, FR-035 |
-| TS-03 | Model data | FR-005, FR-020, FR-023, FR-027, FR-035, FR-071, FR-082 |
-| TS-04 | Kontrak antarmuka | FR-020…029, FR-036, FR-040, FR-070…074, FR-083 |
+| TS-03 | Model data | FR-005, FR-020, FR-023, FR-027, FR-035, FR-071, FR-082, FR-084 |
+| TS-04 | Kontrak antarmuka | FR-020…029, FR-036, FR-040, FR-070…074, FR-083, FR-084 |
 | TS-05 | Autentikasi & otorisasi | FR-001…005 |
 | TS-06 | Pemrosesan konten | FR-021, FR-030, FR-031, FR-032, FR-033, FR-034, FR-035, FR-051, FR-070…072 |
 | TS-07 | Caching & revalidasi | FR-025, FR-026, FR-029, FR-054, FR-058, FR-062, FR-064, FR-074 |
-| TS-08 | Implementasi SEO | FR-027, FR-060…065 |
+| TS-08 | Implementasi SEO | FR-027, FR-059, FR-060…065 |
 | TS-09 | Keamanan | FR-001…005, FR-029, FR-040…042, FR-070…074, FR-082 |
-| TS-10 | Performa | FR-043, FR-050…058 |
+| TS-10 | Performa | FR-043, FR-050…059 |
 | TS-11 | Deployment & lingkungan | FR-003, FR-025, FR-040 |
 | TS-12 | CI/CD | Gerbang verifikasi seluruh FR |
 | TS-13 | Backup & portabilitas | FR-028, FR-036 |

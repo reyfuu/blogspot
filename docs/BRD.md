@@ -215,13 +215,13 @@ Memetakan tujuan bisnis → epic produk (PRD) → requirement fungsional (FRD) �
 | Tujuan Bisnis | Epic (PRD) | Requirement Fungsional (FRD) | Spesifikasi Teknis (TRD) |
 |---|---|---|---|
 | **BR-01** Kepemilikan & portabilitas konten | EP-02 | FR-020, FR-021, FR-035, FR-036 | TS-03, TS-04, TS-13 |
-| **BR-02** Friksi menulis rendah | EP-02 | FR-022, FR-023, FR-024, FR-025, FR-030, FR-031, FR-032 | TS-04, TS-06, TS-07 |
+| **BR-02** Friksi menulis rendah | EP-02 | FR-022, FR-023, FR-024, FR-025, FR-030, FR-031, FR-032, FR-081 | TS-04, TS-06, TS-07 |
 | **BR-03** Biaya operasional minimal | EP-03 | FR-043, FR-058 | TS-01, TS-07, TS-10, TS-11 |
-| **BR-04** Trafik organik | EP-03, EP-05 | FR-060, FR-061, FR-062, FR-063, FR-064, FR-065, FR-027 | TS-08, TS-07 |
+| **BR-04** Trafik organik | EP-03, EP-05 | FR-027, FR-059, FR-060, FR-061, FR-062, FR-063, FR-064, FR-065, FR-084 | TS-07, TS-08 |
 | **BR-05** Pengalaman baca cepat & nyaman | EP-05 | FR-043, FR-050, FR-051, FR-052, FR-053, FR-054, FR-055, FR-056, FR-057, FR-058 | TS-06, TS-07, TS-10 |
 | **BR-06** Interaksi terkendali | EP-04 | FR-070, FR-071, FR-072, FR-073, FR-074, FR-075, FR-076 | TS-06, TS-09 |
 | **BR-07** Keamanan & integritas data | EP-01 | FR-001, FR-002, FR-003, FR-004, FR-005, FR-036, FR-082 | TS-05, TS-09, TS-11, TS-12 |
-| **BR-08** Fondasi dapat dikembangkan | EP-01, EP-02 | FR-005, FR-020, FR-035 | TS-02, TS-03, TS-11 |
+| **BR-08** Fondasi dapat dikembangkan | EP-01, EP-02 | FR-005, FR-020, FR-035, FR-084 | TS-02, TS-03, TS-11 |
 
 ---
 

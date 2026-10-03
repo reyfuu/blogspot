@@ -1,0 +1,232 @@
+// Skema basis data — implementasi dari docs/TRD.md §3.2
+// Referensi aturan: docs/FRD.md (FR-###) dan Lampiran B (BRULE-##)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  runtime  = "nodejs"
+}
+
+// Prisma 7: URL koneksi pindah ke prisma.config.ts (migrasi) dan ke
+// driver adapter pada konstruktor PrismaClient (runtime). Lihat src/lib/db.ts.
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Enumerasi ----------
+enum Role {
+  OWNER
+  READER
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+  TRASHED
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SPAM
+}
+
+// ---------- Pengguna & autentikasi (kontrak Auth.js) ----------
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(READER) // FR-005, BRULE-01
+  bio           String?
+  createdAt     DateTime  @default(now())
+
+  accounts  Account[]
+  sessions  Session[]
+  posts     Post[]
+  comments  Comment[]
+  auditLogs AuditLog[]
+
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId]) // BRULE-03: akun ditautkan, bukan diduplikasi
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Konten ----------
+model Post {
+  id             String     @id @default(cuid())
+  slug           String     @unique // FR-023
+  title          String
+  excerpt        String? // FR-022
+  content        String // Markdown — FR-035, BRULE-15
+  status         PostStatus @default(DRAFT) // FRD §5.1
+  publishedAt    DateTime? // BRULE-11: tidak berubah saat disunting
+  scheduledAt    DateTime? // FR-025
+  trashedAt      DateTime? // BRULE-05: retensi 30 hari
+  previewToken   String     @unique @default(cuid()) // FR-029, BRULE-14
+  readingTime    Int        @default(1) // FR-034
+  wordCount      Int        @default(0)
+  commentsClosed Boolean    @default(false) // FR-076
+
+  authorId String // BRULE-06: siap multi-penulis di v2
+  author   User   @relation(fields: [authorId], references: [id])
+  coverId  String?
+  cover    Media? @relation("PostCover", fields: [coverId], references: [id])
+
+  tags        PostTag[]
+  comments    Comment[]
+  slugHistory PostSlugHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indeks kueri terpanas: WHERE status='PUBLISHED' ORDER BY publishedAt DESC
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([authorId])
+  @@index([trashedAt])
+}
+
+model PostSlugHistory {
+  id        String   @id @default(cuid())
+  slug      String   @unique // BRULE-12: dipesan permanen
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+model Tag {
+  id      String     @id @default(cuid())
+  // BRULE-36: slug tag bersifat immutable. Rename hanya mengubah `name`.
+  slug    String     @unique
+  name    String
+  posts   PostTag[]
+  aliases TagAlias[]
+}
+
+/// Slug tag lama yang masih harus dilayani sebagai pengalihan permanen.
+/// Dibuat saat dua tag digabungkan — tanpa ini, merge diam-diam mematikan
+/// URL /tag/<slug> yang sudah terindeks (BR-04). Mencerminkan PostSlugHistory.
+model TagAlias {
+  slug      String   @id // BRULE-36: dipesan permanen, tidak bisa dipakai tag lain
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([tagId])
+}
+
+model PostTag {
+  postId String
+  tagId  String
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  url       String   @unique // nama acak — BRULE-20
+  pathname  String
+  alt       String? // BRULE-17
+  mimeType  String
+  size      Int
+  width     Int?
+  height    Int?
+  createdAt DateTime @default(now())
+
+  coverFor Post[] @relation("PostCover")
+}
+
+// ---------- Komentar ----------
+model Comment {
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  body   String // disimpan & dirender sebagai teks biasa
+  status CommentStatus @default(PENDING) // BRULE-28, BRULE-31
+
+  authorId       String? // pembaca terdaftar — FR-070
+  author         User?   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  guestName      String? // tamu — FR-071
+  guestEmail     String? // BRULE-30: tidak pernah dikirim ke klien
+  guestEmailHash String? // deteksi laju tanpa memapar email
+
+  parentId String? // balasan 1 tingkat — FR-075
+  parent   Comment?  @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("Replies")
+
+  ipHash    String? // FR-072, tidak menyimpan IP mentah
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([postId, status, createdAt])
+  @@index([status, createdAt]) // antrian moderasi — FR-073
+}
+
+// ---------- Operasional ----------
+model Setting {
+  key       String   @id // FR-083
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id       String  @id @default(cuid()) // FR-082, BRULE-35: hanya-tambah
+  actorId  String?
+  actor    User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action   String
+  entity   String
+  entityId String?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([entity, entityId])
+}
