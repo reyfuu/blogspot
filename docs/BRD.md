@@ -79,7 +79,7 @@ Setiap tujuan punya ID stabil yang direferensikan dokumen hilir (PRD/FRD/TRD).
 
 | Pilar | Cakupan |
 |---|---|
-| **Autentikasi & akun** | Login OAuth untuk owner; proteksi area `/admin`; akun pembaca untuk berkomentar; manajemen sesi |
+| **Autentikasi & akun** | Login email + kata sandi untuk owner; proteksi area `/admin`; manajemen sesi. *Pembaca tidak punya akun — mereka berkomentar sebagai tamu (revisi OQ-2).* |
 | **Authoring & editor** | Editor rich text dengan keluaran Markdown/MDX; draft & autosave; penjadwalan terbit; slug otomatis; tag; gambar sampul; unggah media; pratinjau draft |
 | **SEO & performa** | Metadata per halaman; OG image dinamis; `sitemap.xml`; `robots.txt`; feed RSS; structured data JSON-LD; canonical URL; optimasi Core Web Vitals |
 | **Komentar & interaksi** | Komentar dari pembaca login maupun tamu; antrian moderasi; balasan 1 tingkat; anti-spam; tombol bagikan |
@@ -124,7 +124,7 @@ Setiap tujuan punya ID stabil yang direferensikan dokumen hilir (PRD/FRD/TRD).
 |---|---|---|---|
 | D-1 | Akun & proyek **Vercel** | Wajib | Hosting, CDN, build pipeline |
 | D-2 | Akun & proyek **Neon Postgres** | Wajib | Basis data utama; fitur branching dipakai untuk preview |
-| D-3 | **Penyedia OAuth** (GitHub dan/atau Google) | Wajib | Autentikasi owner dan pembaca |
+| D-3 | ~~**Penyedia OAuth**~~ | **Tidak lagi** | Dihapus pada revisi OQ-2 — kredensial owner berasal dari variabel lingkungan, tanpa pihak ketiga |
 | D-4 | **Vercel Blob** (atau setara) | Wajib | Penyimpanan gambar unggahan |
 | D-5 | **Registrar domain** | Wajib sebelum peluncuran publik | Biaya tahunan |
 | D-6 | Repositori **GitHub** | Wajib | Sumber deployment Vercel & CI |
@@ -150,7 +150,6 @@ Setiap tujuan punya ID stabil yang direferensikan dokumen hilir (PRD/FRD/TRD).
 | Vercel Hobby | Gratis (non-komersial) | USD 0 |
 | Neon Free | Gratis | USD 0 |
 | Vercel Blob | Kuota gratis | USD 0 |
-| OAuth provider | Gratis | USD 0 |
 | Domain | Berbayar tahunan | ± USD 1/bulan (ekuivalen USD 12/tahun) |
 | **Total** | | **± USD 1/bulan** |
 
@@ -179,7 +178,7 @@ Skala: Dampak & Kemungkinan = Rendah / Sedang / Tinggi.
 | **R-4** | Ketergantungan vendor (lock-in Vercel/Neon) | Sedang | Rendah | Pakai Postgres standar (portabel); hindari API eksklusif vendor di lapisan domain; abstraksi penyimpanan media | BR-01, BR-03 |
 | **R-5** | Proyek mangkrak karena kapasitas 1 orang | **Tinggi** | Sedang | Ruang lingkup v1 dijaga ketat; MVP cut-line tegas; fitur non-esensial didorong ke v1.1 | C-1 |
 | **R-6** | Trafik organik tidak tercapai | Sedang | Sedang | SEO teknis lengkap sejak hari pertama; konsistensi terbit; struktur internal link; pemantauan Search Console | BR-04 |
-| **R-7** | Akun owner diambil alih | **Tinggi** | Rendah | OAuth (tanpa password tersimpan); daftar putih email owner; sesi berumur pendek untuk area admin; audit log aksi admin | BR-07 |
+| **R-7** | Akun owner diambil alih | **Tinggi** | Rendah | Kata sandi hanya tersimpan sebagai hash scrypt bergaram, tidak pernah mentah; satu email owner dari variabel lingkungan; sesi admin berumur pendek (7 hari); audit log aksi admin. *Belum ada pembatasan laju percobaan masuk — lihat TRD §5.4.* | BR-07 |
 | **R-8** | Konten berbahaya tersuntik lewat editor/komentar (XSS) | **Tinggi** | Sedang | Sanitasi Markdown/HTML di sisi server; render komentar sebagai teks biasa; Content Security Policy | BR-07 |
 | **R-9** | Biaya melonjak tanpa disadari | Sedang | Rendah | Pantau kuota; aktifkan notifikasi penggunaan vendor; batasi ukuran & jumlah unggahan media | BR-03 |
 | **R-10** | Perubahan slug merusak tautan yang sudah terindeks | Sedang | Sedang | Slug dikunci setelah terbit; simpan riwayat slug dan lakukan redirect 301 | BR-04 |
@@ -201,7 +200,7 @@ Skala: Dampak & Kemungkinan = Rendah / Sedang / Tinggi.
 | ID | Pertanyaan | Blocking untuk |
 |---|---|---|
 | **OQ-1** | Nama merek dan domain final? | Peluncuran publik, konfigurasi SEO & OG image |
-| **OQ-2** | Penyedia OAuth yang dipakai: GitHub, Google, atau keduanya? | Implementasi autentikasi (TS-05) |
+| **OQ-2** | ~~Penyedia OAuth yang dipakai?~~ | **Terjawab (revisi):** tidak memakai OAuth sama sekali. Masuk dengan email + kata sandi milik owner; pembaca tidak punya akun |
 | **OQ-3** | Apakah komentar tamu (tanpa login) benar-benar diizinkan, atau wajib login? | Desain modul komentar (M7) |
 | **OQ-4** | Apakah blog akan dipakai untuk tujuan komersial? | Menentukan kelayakan Vercel Hobby (BR-03) |
 | **OQ-5** | Perlukah halaman kebijakan privasi sejak v1 (terkait penyimpanan email pengomentar)? | Kepatuhan (C-5) |

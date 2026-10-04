@@ -62,7 +62,7 @@
 
 ```mermaid
 flowchart LR
-    A["Login OAuth"] --> B["Dashboard /admin"]
+    A["Login email + sandi"] --> B["Dashboard /admin"]
     B --> C["Buat artikel baru"]
     C --> D["Tulis di editor<br/>autosave berkala"]
     D --> E{"Siap?"}
@@ -88,7 +88,7 @@ flowchart LR
     D -- Ya --> E["Artikel terkait / tag / arsip"]
     E --> C
     D -- Ingin merespons --> F{"Punya akun?"}
-    F -- Ya --> G["Login OAuth"]
+    F -- Ya --> G["Login email + sandi"]
     F -- Tidak --> H["Isi nama dan email sebagai tamu"]
     G --> I["Kirim komentar"]
     H --> I
@@ -110,11 +110,11 @@ flowchart LR
 
 | ID | User Story | Prioritas |
 |---|---|---|
-| **US-001** | Sebagai **owner**, saya ingin masuk menggunakan akun OAuth saya, agar saya tidak perlu mengingat atau menyimpan kata sandi. | **M** |
+| **US-001** | Sebagai **owner**, saya ingin masuk dengan email dan kata sandi saya, agar saya tidak bergantung pada layanan pihak ketiga untuk mengakses blog sendiri. | **M** |
 | **US-002** | Sebagai **owner**, saya ingin seluruh area `/admin` tertutup bagi siapa pun selain saya, agar konten dan pengaturan tidak bisa diubah pihak lain. | **M** |
 | **US-003** | Sebagai **owner**, saya ingin akun owner ditetapkan sekali saat penyiapan awal, agar tidak ada orang lain yang bisa mendaftar lalu memperoleh hak administratif. | **M** |
 | **US-004** | Sebagai **owner**, saya ingin bisa keluar dari sesi, agar aman ketika memakai perangkat bersama. | **M** |
-| **US-005** | Sebagai **pembaca**, saya ingin bisa membuat akun lewat OAuth, agar identitas saya konsisten saat berkomentar dan saya tidak perlu mengisi nama berulang kali. | **S** |
+| ~~**US-005**~~ | ~~Sebagai **pembaca**, saya ingin bisa membuat akun…~~ **Dibatalkan pada revisi OQ-2:** pembaca hanya membaca dan berkomentar sebagai tamu. | — |
 | **US-006** | Sebagai **owner**, saya ingin melihat catatan aktivitas administratif penting (terbit, hapus, perubahan moderasi), agar saya bisa menelusuri bila terjadi hal tak terduga. | **C** |
 
 **Acceptance Criteria — US-002**
@@ -285,7 +285,7 @@ Lanjutan dari BRD §11, ditambah pertanyaan tingkat produk:
 | ID | Pertanyaan | Dampak bila tertunda |
 |---|---|---|
 | OQ-1 | Nama merek & domain final | Memblokir konfigurasi SEO dan OG image |
-| OQ-2 | Provider OAuth: GitHub, Google, atau keduanya | Memblokir US-001, US-005 |
+| OQ-2 | ~~Provider OAuth~~ | **Terjawab (revisi):** tanpa OAuth. US-001 memakai email + kata sandi; US-005 dibatalkan |
 | OQ-3 | Komentar tamu diizinkan atau wajib login | Mengubah cakupan US-041 secara signifikan |
 | OQ-5 | Perlukah halaman kebijakan privasi di v1 | Terkait penyimpanan email pengomentar |
 | **OQ-6** | Berapa lama komentar tetap terbuka setelah artikel terbit (selamanya / N hari)? | Memengaruhi BRULE pada FRD |

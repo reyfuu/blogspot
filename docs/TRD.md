@@ -53,7 +53,7 @@ flowchart TB
 
     subgraph VERCEL["Vercel"]
         CDN["Edge Network / CDN<br/>cache HTML terprerender"]
-        MW["Middleware<br/>proteksi rute admin"]
+        MW["Proxy<br/>proteksi rute admin"]
         RSC["Next.js App Router<br/>React Server Components"]
         SA["Server Actions<br/>mutasi + revalidasi"]
         RH["Route Handlers<br/>rss · sitemap · og · cron"]
@@ -62,10 +62,6 @@ flowchart TB
 
     subgraph DATA["Data"]
         NEON[("Neon Postgres<br/>serverless")]
-    end
-
-    subgraph EXT["Eksternal"]
-        OAUTH["Penyedia OAuth"]
     end
 
     BR -->|"GET halaman publik"| CDN
@@ -78,7 +74,6 @@ flowchart TB
     RH --> NEON
     SA --> BLOB
     BR -->|"muat gambar"| BLOB
-    MW -.verifikasi sesi.-> OAUTH
 
     style CDN fill:#dff,stroke:#07a
     style NEON fill:#efd,stroke:#5a0
@@ -110,7 +105,7 @@ flowchart TB
 | Kerangka kerja | **Next.js 16 (App Router)** + React 19 + TypeScript `strict` | RSC memungkinkan static-first (P1) sekaligus dashboard dinamis dalam satu basis kode; integrasi Vercel paling matang | *Astro*: sangat baik untuk konten, tetapi dashboard admin interaktif jadi kerja ekstra · *Remix*: tidak punya padanan ISR berbasis tag sekelas ini |
 | Basis data | **Neon Postgres (serverless)** | Postgres standar → portabel (P2); tier gratis; **branching** memberi basis data terisolasi per preview deployment | *Vercel Postgres*: lock-in lebih erat · *SQLite/Turso*: alur migrasi kurang mapan untuk kebutuhan ini · *MongoDB*: relasi artikel–tag–komentar justru lebih alami di SQL |
 | ORM | **Prisma** + adapter driver Neon | Skema deklaratif, migrasi berversi, keamanan tipe; adapter Neon memakai koneksi HTTP/WebSocket yang cocok untuk serverless | *Drizzle*: lebih ringan, tetapi Prisma lebih mudah dirawat satu orang (P4) · *SQL mentah*: tidak ada keamanan tipe maupun migrasi |
-| Autentikasi | **Auth.js (NextAuth) v5** + adapter Prisma | OAuth tanpa menyimpan kata sandi (mitigasi R-7); sesi berbasis basis data; terintegrasi dengan App Router | *Clerk/Auth0*: layanan berbayar, melanggar C-2 · *Autentikasi buatan sendiri*: risiko keamanan tidak sepadan |
+| Autentikasi | **Auth.js (NextAuth) v5**, provider Credentials, sesi JWT | Satu akun owner, tanpa ketergantungan pada penyedia pihak ketiga; penanganan cookie dan CSRF tetap ditangani pustaka yang teruji | *OAuth*: butuh OAuth App per domain, berlebihan untuk satu penulis · *Clerk/Auth0*: berbayar, melanggar C-2 · *Sesi buatan sendiri*: risiko keamanan tidak sepadan |
 | Editor | **Tiptap**, keluaran **Markdown** | Pengalaman rich text yang nyaman namun tetap menyimpan Markdown (P2, BRULE-15) | *Textarea Markdown polos*: friksi tinggi, melanggar BR-02 · *Editor berbasis HTML*: mengunci format, melanggar P2 |
 | Render konten | Pipeline **MDX / remark + rehype** di sisi server | Pewarnaan sintaks dan sanitasi dilakukan saat build/regenerasi, bukan di peramban (BRULE-16) | *Highlight.js di klien*: menambah bundel, melanggar BR-05 |
 | Penyimpanan media | **Vercel Blob** | Terintegrasi, ada tier gratis; diakses lewat lapisan abstraksi tipis agar dapat diganti (mitigasi R-4) | *Cloudinary*: fitur berlebih untuk kebutuhan ini · *S3*: menambah vendor dan konfigurasi |
@@ -398,7 +393,7 @@ model AuditLog {
 
 | Rute | Metode | Otorisasi | Keluaran |
 |---|---|---|---|
-| `/api/auth/[...nextauth]` | GET/POST | publik | Alur OAuth |
+| `/api/auth/[...nextauth]` | GET/POST | publik | Alur masuk/keluar Auth.js |
 | `/api/upload` | POST | OWNER | Unggah media → `{ id, url, width, height }` · `E-MEDIA-01…03` |
 | `/api/cron/publish` | GET | rahasia cron | Promosi `SCHEDULED → PUBLISHED` (FR-025) |
 | `/api/export` | GET | OWNER | Arsip Markdown (FR-036) |
@@ -433,22 +428,16 @@ model AuditLog {
 sequenceDiagram
     participant U as Pengguna
     participant A as Aplikasi
-    participant P as Penyedia OAuth
     participant D as Neon Postgres
 
     U->>A: GET /login
-    A-->>U: Tombol penyedia
-    U->>A: Pilih penyedia
-    A->>P: Alihkan (state, PKCE)
-    P-->>U: Halaman izin
-    U->>P: Setujui
-    P->>A: Callback (code, state)
-    A->>A: Verifikasi state
-    A->>P: Tukar code → token (sisi server)
-    P-->>A: Profil + email terverifikasi
-    A->>D: Cari/buat User berdasarkan email
-    A->>A: role = email ∈ OWNER_EMAILS ? OWNER : READER
-    A->>D: Buat Session
+    A-->>U: Form email + kata sandi
+    U->>A: Kirim kredensial (POST)
+    A->>A: email == OWNER_EMAIL ?
+    A->>A: scrypt verify vs OWNER_PASSWORD_HASH
+    Note over A: Email salah tetap menjalankan satu<br/>verifikasi umpan — waktu respons setara
+    A->>D: Upsert User (role OWNER)
+    A->>A: Terbitkan JWT (sub = User.id)
     A-->>U: Cookie sesi + alihkan ke tujuan
 ```
 
@@ -464,16 +453,26 @@ sequenceDiagram
 
 ### 5.3 Kebijakan sesi
 
-| Parameter | Owner | Pembaca | Sumber |
-|---|---|---|---|
-| Strategi | Sesi tersimpan di basis data | Sesi tersimpan di basis data | — |
-| Masa berlaku | 7 hari, diperbarui saat aktif | 30 hari | BRULE-02 |
-| Cookie | `httpOnly`, `secure`, `sameSite=lax` | idem | — |
-| Pencabutan | Hapus baris sesi | idem | FR-004 |
+| Parameter | Owner | Sumber |
+|---|---|---|
+| Strategi | **JWT** dalam cookie terenkripsi | — |
+| Masa berlaku | 7 hari | BRULE-02 |
+| Cookie | `httpOnly`, `secure`, `sameSite=lax` | — |
+| Pencabutan | Hapus cookie (keluar), **atau** ubah `AUTH_SECRET` untuk mematikan seluruh sesi sekaligus | FR-004 |
+
+> **Mengapa JWT, bukan sesi basis data seperti rencana awal.** Provider Credentials Auth.js tidak mendukung strategi `database` — ini batasan pustaka, bukan pilihan. Konsekuensinya: sesi tidak bisa dicabut satu per satu dari basis data. Untuk satu akun owner, mengganti `AUTH_SECRET` sudah setara dengan mencabut semuanya. Kolom peran tetap dihitung ulang dari `OWNER_EMAIL` pada tiap permintaan, sehingga mencabut akses tidak perlu menunggu token kedaluwarsa.
+
+> Tabel `Account`, `Session`, dan `VerificationToken` menjadi tidak terpakai namun **sengaja dipertahankan** — menghapusnya adalah migrasi destruktif tanpa manfaat, dan tabel itu dibutuhkan lagi bila kelak OAuth dipasang.
 
 ### 5.4 Penetapan owner
 
-Daftar email owner dibaca dari variabel lingkungan `OWNER_EMAILS` (dipisah koma). Aplikasi **menolak start di produksi** bila nilainya kosong (`E-CFG-01`). Tidak ada jalur lain untuk memperoleh peran `OWNER` (BRULE-01).
+Blog ini single-author: **satu** email owner dibaca dari `OWNER_EMAIL`, dan kata sandinya diverifikasi terhadap `OWNER_PASSWORD_HASH`. Aplikasi **menolak start di produksi** bila salah satunya kosong (`E-CFG-01`). Tidak ada halaman pendaftaran sama sekali, sehingga BRULE-01 dijaga oleh konstruksi, bukan oleh pemeriksaan.
+
+**Hash kata sandi.** `scrypt` dari pustaka standar Node (`N=32768, r=8, p=1`, garam 16 bait, kunci 32 bait), bukan bcrypt/argon2 — keduanya modul native yang perlu dikompilasi saat build. String tersimpan memuat parameternya sendiri (`scrypt$N$r$p$garam$hash`) agar biaya dapat dinaikkan tanpa mematahkan hash lama. Perbandingan memakai `timingSafeEqual`.
+
+**Pembaca tidak punya akun.** Peran `READER` masih ada di skema untuk kesiapan v2, tetapi tidak ada jalur yang menghasilkannya — pembaca berkomentar sebagai tamu (FR-070).
+
+> **Batas yang diketahui:** belum ada pembatasan laju pada percobaan masuk. Yang menahan tebak-sandi hanyalah biaya scrypt (~100 ms per percobaan) dan syarat panjang kata sandi minimal 12 karakter saat hash dibuat. Bila blog ini kelak menjadi sasaran bernilai, tambahkan pembatasan laju berbasis Postgres seperti pada komentar (FR-072).
 
 > Memenuhi: **TS-05 → FR-001…005**
 
@@ -682,9 +681,8 @@ Artinya pemisahan server/klien bekerja sebagaimana dirancang: editor, pewarna si
 | `DIRECT_URL` | semua | Koneksi langsung — khusus migrasi Prisma |
 | `AUTH_SECRET` | semua | Rahasia penandatanganan sesi |
 | `AUTH_URL` | prod/preview | URL kanonik aplikasi |
-| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | semua | Bila GitHub dipakai (**OQ-2**) |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | semua | Bila Google dipakai (**OQ-2**) |
-| `OWNER_EMAILS` | semua | Daftar email owner dipisah koma (FR-003) |
+| `OWNER_EMAIL` | semua | Satu-satunya email yang boleh masuk (FR-003) |
+| `OWNER_PASSWORD_HASH` | semua | Hash scrypt dari `pnpm hash-password` (FR-001) |
 | `BLOB_READ_WRITE_TOKEN` | semua | Token Vercel Blob |
 | `CRON_SECRET` | prod | Melindungi `/api/cron/publish` |
 | `NEXT_PUBLIC_SITE_URL` | semua | URL kanonik untuk `metadataBase` (BRULE-27) |
@@ -797,7 +795,7 @@ flowchart LR
 | TR-5 | Celah XSS lewat MDX | Sanitasi daftar-izin; komentar sebagai teks biasa; CSP ketat | R-8 |
 | TR-6 | Pembengkakan bundel menurunkan Core Web Vitals | Anggaran bundel ditegakkan di CI sebagai gerbang merge | R-6 |
 | TR-7 | Perubahan skema Prisma merusak produksi | Pola *expand-then-contract*; diuji lebih dulu di branch Neon preview | R-3 |
-| TR-8 | Perubahan API penyedia OAuth | Pakai pustaka Auth.js yang terpelihara, bukan integrasi manual | — |
+| TR-8 | Perubahan API Auth.js (masih pra-rilis v5) | Versi dipin; permukaan yang dipakai sempit — satu provider Credentials dan dua callback | — |
 | TR-9 | Ketergantungan Vercel Blob | Diakses lewat modul abstraksi tipis sehingga dapat diganti | R-4 |
 
 ---

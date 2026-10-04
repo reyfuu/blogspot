@@ -21,7 +21,8 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
-    "test:all": "vitest run"
+    "test:all": "vitest run",
+    "hash-password": "node --env-file-if-exists=.env --import tsx scripts/hash-password.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.11.3",

@@ -102,17 +102,21 @@ flowchart TB
 
 ## 4. Modul M1 — Autentikasi & Akun
 
-### FR-001 · Masuk dengan OAuth
-> Memenuhi US-001, US-005 · BR-07
+### FR-001 · Masuk dengan email dan kata sandi
+> Memenuhi US-001 · BR-07
 
 | | |
 |---|---|
 | **Aktor** | `GUEST` |
-| **Prakondisi** | Penyedia OAuth terkonfigurasi |
-| **Input & validasi** | Pilihan penyedia; sistem memvalidasi `state` dan menukar kode otorisasi di sisi server |
-| **Proses** | 1) Alihkan ke penyedia · 2) Terima callback · 3) Verifikasi · 4) Cari atau buat pengguna berdasarkan email terverifikasi · 5) Tetapkan peran per **FR-003** · 6) Buat sesi |
-| **Output** | Sesi aktif; `OWNER` dialihkan ke tujuan semula atau `/admin`, `READER` kembali ke halaman asal |
-| **Error** | Pengguna membatalkan → kembali ke `/login` dengan pesan netral · `state` tidak cocok → tolak (`E-AUTH-02`) · email tidak terverifikasi di penyedia → tolak (`E-AUTH-03`) |
+| **Prakondisi** | `OWNER_EMAIL` dan `OWNER_PASSWORD_HASH` terkonfigurasi |
+| **Input & validasi** | Email dan kata sandi dari formulir. Email dinormalisasi (dipangkas, huruf kecil) sebelum dibandingkan |
+| **Proses** | 1) Bandingkan email dengan `OWNER_EMAIL` · 2) Verifikasi kata sandi terhadap hash scrypt · 3) Pastikan baris `User` owner ada · 4) Terbitkan sesi JWT |
+| **Output** | Sesi aktif; owner dialihkan ke tujuan semula atau `/admin` |
+| **Error** | Email atau kata sandi salah → `/login?error=1` dengan pesan tunggal (`E-AUTH-02`) |
+
+> **BRULE-38:** pesan kegagalan **tidak pernah** membedakan email salah dari kata sandi salah, dan email yang tidak dikenal tetap menjalankan satu verifikasi umpan. Tanpa itu, selisih pesan maupun selisih waktu respons sama-sama membocorkan alamat owner.
+
+> **Tujuan pengalihan `?next=` wajib berupa jalur internal** (diawali `/`, bukan `//`). Nilai lain diabaikan dan diganti `/admin`, agar halaman masuk tidak bisa dipakai sebagai pengalih terbuka.
 
 ### FR-002 · Proteksi area administratif
 > Memenuhi US-002 · BR-07
@@ -151,13 +155,14 @@ flowchart TB
 | **Aturan** | **BRULE-02:** masa berlaku sesi `OWNER` lebih pendek daripada `READER`, dan diperbarui saat ada aktivitas |
 
 ### FR-005 · Model pengguna & peran
-> Memenuhi US-005 · BR-07, BR-08
+> Memenuhi BR-07, BR-08
 
 | | |
 |---|---|
 | **Deskripsi** | Sistem menyimpan satu entitas pengguna dengan atribut peran bernilai enumerasi, bukan penanda biner "admin/bukan admin" |
 | **Alasan** | Memungkinkan penambahan peran (mis. `AUTHOR`, `EDITOR`) di v2 **tanpa migrasi destruktif** — memenuhi BR-08 |
-| **Aturan** | **BRULE-03:** satu alamat email = satu pengguna; masuk dengan penyedia berbeda memakai email terverifikasi yang sama akan **menautkan akun**, bukan menduplikasinya |
+| **Aturan** | **BRULE-03:** satu alamat email = satu pengguna |
+| **Catatan v1** | Hanya owner yang punya akun. Peran `READER` tetap ada di skema untuk kesiapan v2, tetapi **tidak ada jalur yang menghasilkannya** — pembaca berkomentar sebagai tamu (FR-070) |
 
 ### FR-006 · Catatan aktivitas administratif *(Could — v1.1)*
 > Memenuhi US-006
@@ -728,8 +733,7 @@ Perubahan pengaturan memicu revalidasi halaman publik yang terpengaruh.
 | Kode | Kondisi | Pesan untuk pengguna | HTTP |
 |---|---|---|---|
 | `E-AUTH-01` | Sesi kedaluwarsa saat aksi tulis | "Sesi Anda telah berakhir. Silakan masuk kembali — tulisan Anda tidak hilang." | 401 |
-| `E-AUTH-02` | Validasi OAuth gagal | "Proses masuk tidak dapat diselesaikan. Silakan coba lagi." | 400 |
-| `E-AUTH-03` | Email penyedia tidak terverifikasi | "Akun Anda perlu memiliki email terverifikasi untuk masuk." | 403 |
+| `E-AUTH-02` | Email atau kata sandi salah | "Email atau kata sandi salah." | 400 |
 | `E-AUTH-04` | Bukan owner mengakses `/admin` | "Anda tidak memiliki akses ke halaman ini." | 403 |
 | `E-CFG-01` | Konfigurasi owner kosong di produksi | *(galat penyiapan, tidak tampil ke pengguna)* | 500 |
 | `E-POST-01` | Prasyarat terbit tidak lengkap | "Lengkapi dulu: {daftar bidang}." | 422 |
@@ -847,6 +851,7 @@ Perubahan pengaturan memicu revalidasi halaman publik yang terpengaruh.
 | BRULE-35 | Catatan audit bersifat hanya-tambah | FR-082 |
 | BRULE-36 | Slug tag immutable; perubahan lewat merge + alias pengalihan permanen | FR-024, FR-084 |
 | BRULE-37 | Merge tag tidak boleh menduplikasi relasi `PostTag` | FR-084 |
+| BRULE-38 | Pesan gagal masuk tidak membedakan email dari kata sandi, dan waktu responsnya disetarakan | FR-001 |
 
 ---
 

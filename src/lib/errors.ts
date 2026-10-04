@@ -5,8 +5,8 @@
  */
 export const ERRORS = {
   'E-AUTH-01': 'Sesi Anda telah berakhir. Silakan masuk kembali — tulisan Anda tidak hilang.',
-  'E-AUTH-02': 'Proses masuk tidak dapat diselesaikan. Silakan coba lagi.',
-  'E-AUTH-03': 'Akun Anda perlu memiliki email terverifikasi untuk masuk.',
+  // BRULE-38: tidak membedakan email salah dari kata sandi salah.
+  'E-AUTH-02': 'Email atau kata sandi salah.',
   'E-AUTH-04': 'Anda tidak memiliki akses ke halaman ini.',
   'E-POST-01': 'Lengkapi dulu bagian yang masih kosong.',
   'E-POST-02': 'Ringkasan maksimal 300 karakter.',

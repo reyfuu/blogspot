@@ -14,7 +14,7 @@ Keempat dokumen ini dirancang sebagai **satu sistem yang saling terhubung**, buk
 | 2 | **[PRD.md](./PRD.md)** — *Product Requirements* | **Apa** yang dibangun, untuk siapa, dan mana yang masuk MVP? | Produk & desain |
 | 3 | **[FRD.md](./FRD.md)** — *Functional Requirements* | **Bagaimana sistem berperilaku** pada setiap input, aturan, dan kondisi gagal? | Implementor & QA |
 | 4 | **[TRD.md](./TRD.md)** — *Technical Requirements* | **Bagaimana membangunnya** — arsitektur, data, keamanan, deployment? | Engineer |
-| — | **[SETUP.md](./SETUP.md)** — *Panduan penyiapan* | **Bagaimana menjalankannya** — env, OAuth, migrasi, deploy | Siapa pun yang menjalankan |
+| — | **[SETUP.md](./SETUP.md)** — *Panduan penyiapan* | **Bagaimana menjalankannya** — env, kata sandi owner, migrasi, deploy | Siapa pun yang menjalankan |
 
 > Baca berurutan bila baru pertama kali. Untuk langsung mengerjakan kode, mulai dari **TRD Lampiran B — Urutan Implementasi**, dan rujuk balik ke FRD saat butuh detail perilaku.
 
@@ -32,11 +32,11 @@ BR-##  (BRD)  →  EP-## / US-###  (PRD)  →  FR-###  (FRD)  →  TS-##  (TRD)
 |---|---|---|---|
 | `BR-##` | Tujuan bisnis | BRD §3 | 8 |
 | `EP-##` | Epic produk | PRD §5 | 5 |
-| `US-###` | User story | PRD §5 | 44 |
+| `US-###` | User story | PRD §5 | 44 (US-005 dibatalkan) |
 | `FR-###` | Requirement fungsional | FRD §4–§11 | 55 |
-| `BRULE-##` | Aturan bisnis | FRD (inline) · indeks di Lampiran B | 37 |
+| `BRULE-##` | Aturan bisnis | FRD (inline) · indeks di Lampiran B | 38 |
 | `TS-##` | Spesifikasi teknis | TRD | 16 |
-| `E-*` | Kode kesalahan | FRD §12 | 25 |
+| `E-*` | Kode kesalahan | FRD §12 | 24 |
 
 **Matriks keterlacakan utama** ada di [BRD §12](./BRD.md#12-matriks-keterlacakan). Pemetaan balik `TS → FR` ada di [TRD TS-16](./TRD.md#ts-16--keterlacakan-ts--fr).
 
@@ -55,8 +55,8 @@ grep -ohE '\b(BR|EP|US|FR|TS|BRULE)-[0-9]+' *.md | sort -u
 | Aspek | Keputusan |
 |---|---|
 | Cakupan | Blog pribadi **single-author** — bukan multi-tenant, bukan multi-penulis (v1) |
-| Peran | `OWNER` (satu pemilik) + `READER` (pembaca yang berkomentar) + `GUEST` |
-| Stack | Next.js App Router · Neon Postgres · Prisma · Auth.js · Tiptap · Vercel Blob · Tailwind |
+| Peran | `OWNER` (satu pemilik) + `GUEST` (pembaca). `READER` tersedia di skema tapi tidak terpakai di v1 |
+| Stack | Next.js App Router · Neon Postgres · Prisma · Auth.js (Credentials) · Tiptap · Vercel Blob · Tailwind |
 | Prinsip arsitektur | **Static-first** — jalur baca publik tidak menyentuh basis data |
 | Format konten | **Markdown teks biasa** sebagai sumber kebenaran (portabilitas) |
 | Moderasi | **Seluruh** komentar wajib disetujui owner sebelum tampil |
@@ -72,7 +72,7 @@ Dikumpulkan dari seluruh dokumen. Tanda ⛔ berarti memblokir pekerjaan tertentu
 | ID | Pertanyaan | Memblokir | Sumber |
 |---|---|---|---|
 | **OQ-1** | Nama merek dan domain final? | ⛔ Konfigurasi SEO, OG image, `NEXT_PUBLIC_SITE_URL` | BRD §11 |
-| **OQ-2** | Penyedia OAuth: GitHub, Google, atau keduanya? | *Terjawab:* **GitHub**. Masih perlu kredensial OAuth App | BRD §11 |
+| **OQ-2** | Penyedia OAuth: GitHub, Google, atau keduanya? | *Terjawab (revisi):* **tanpa OAuth** — masuk dengan email + kata sandi owner; pembaca tidak punya akun | BRD §11 |
 | **OQ-3** | Komentar tamu diizinkan, atau wajib login? | *Terjawab:* diizinkan, dapat dimatikan di `/admin/settings` | BRD §11 |
 | **OQ-4** | Blog dipakai untuk tujuan komersial? | Menentukan kelayakan Vercel Hobby (BR-03) | BRD §11 |
 | **OQ-5** | Perlu halaman kebijakan privasi sejak v1? | Kepatuhan penyimpanan email pengomentar (C-5) | BRD §11 |
@@ -106,6 +106,9 @@ Aplikasi v1 sudah dibangun mengikuti dokumen ini. Beberapa hal **berbeda dari re
 | Anggaran JS | < 120 KB | **174 KB baseline framework**; JS aplikasi hanya ±6 KB | TRD TS-10 §10.3 |
 | Versi Next.js | 15 | **16.3.8** | TRD §Versi terpasang |
 | Lapis otorisasi 1 | `middleware.ts` | **`proxy.ts`** — konvensi `middleware` usang di Next 16; perilaku identik | TRD TS-05 §5.2 |
+| Autentikasi | OAuth GitHub | **Email + kata sandi owner** (scrypt), tanpa pihak ketiga | TRD TS-05 §5.4 |
+| Strategi sesi | Sesi di basis data | **JWT** — provider Credentials Auth.js tidak mendukung strategi `database` | TRD TS-05 §5.3 |
+| Akun pembaca | Pembaca bisa mendaftar (US-005) | **Dibatalkan** — pembaca hanya membaca dan berkomentar sebagai tamu | PRD §5 |
 | Prisma | `latest` | **dipin 7.10.0** — `latest` menunjuk RC 8 | TRD §Versi terpasang |
 
 ## Catatan Verifikasi

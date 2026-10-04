@@ -2,16 +2,18 @@ import { z } from 'zod'
 
 /**
  * Validasi variabel lingkungan saat start.
- * FR-003 / E-CFG-01: aplikasi menolak start di produksi bila OWNER_EMAILS kosong,
- * karena tanpa itu tidak ada seorang pun yang bisa memperoleh peran OWNER (BRULE-01).
+ * FR-003 / E-CFG-01: aplikasi menolak start di produksi bila kredensial owner
+ * belum lengkap, karena tanpa itu tidak ada seorang pun yang bisa memperoleh
+ * peran OWNER (BRULE-01).
  */
 const schema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL wajib diisi'),
   DIRECT_URL: z.string().optional(),
   AUTH_SECRET: z.string().min(1).optional(),
-  AUTH_GITHUB_ID: z.string().optional(),
-  AUTH_GITHUB_SECRET: z.string().optional(),
-  OWNER_EMAILS: z.string().default(''),
+  /** Satu-satunya akun yang boleh masuk. Blog ini single-author (BR-01). */
+  OWNER_EMAIL: z.string().default(''),
+  /** Keluaran `pnpm hash-password`. Kata sandi mentah tidak pernah disimpan. */
+  OWNER_PASSWORD_HASH: z.string().default(''),
   NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
   CRON_SECRET: z.string().optional(),
@@ -30,17 +32,19 @@ if (!parsed.success) {
 
 export const env = parsed.data
 
-/** Daftar email yang berhak atas peran OWNER. Dinormalisasi ke huruf kecil. */
-export const OWNER_EMAILS: readonly string[] = env.OWNER_EMAILS.split(',')
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean)
+/** Email owner, dinormalisasi. String kosong berarti belum dikonfigurasi. */
+export const OWNER_EMAIL = env.OWNER_EMAIL.trim().toLowerCase()
 
-if (env.NODE_ENV === 'production' && OWNER_EMAILS.length === 0) {
+/** Masuk hanya mungkin bila email DAN hash kata sandi sama-sama terisi. */
+export const isAuthConfigured = Boolean(OWNER_EMAIL && env.OWNER_PASSWORD_HASH)
+
+if (env.NODE_ENV === 'production' && !isAuthConfigured) {
   throw new Error(
-    '[E-CFG-01] OWNER_EMAILS kosong di produksi. Tanpa ini tidak ada akun yang bisa menjadi OWNER (BRULE-01).',
+    '[E-CFG-01] OWNER_EMAIL atau OWNER_PASSWORD_HASH kosong di produksi. ' +
+      'Tanpa keduanya tidak ada akun yang bisa menjadi OWNER (BRULE-01). ' +
+      'Hasilkan hash dengan: pnpm hash-password',
   )
 }
 
-export const isGitHubAuthConfigured = Boolean(env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET)
 export const isBlobConfigured = Boolean(env.BLOB_READ_WRITE_TOKEN)
 export const SITE_URL = env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '')

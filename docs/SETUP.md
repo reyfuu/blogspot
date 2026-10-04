@@ -11,7 +11,7 @@ Panduan menyiapkan aplikasi dari nol. Perkiraan waktu: **10–15 menit**.
 | Node.js | v26.8.2 (minimal 20.19) |
 | pnpm | 10.33 |
 | Akun Neon | tier gratis |
-| Akun GitHub | untuk OAuth |
+| Akun GitHub | untuk repositori & CI (bukan untuk masuk) |
 
 ```bash
 pnpm install
@@ -32,21 +32,23 @@ Buat project Postgres di [console.neon.tech](https://console.neon.tech), lalu sa
 
 ---
 
-## 3. GitHub OAuth App
+## 3. Kata sandi owner
 
-Bagian ini **harus Anda lakukan sendiri** — kredensial OAuth tidak dapat dibuatkan.
+Blog ini **single-author**: hanya satu akun yang bisa masuk, dan kredensialnya berasal dari variabel lingkungan. Tidak ada halaman pendaftaran — pembaca tidak perlu akun sama sekali, mereka berkomentar sebagai tamu.
 
-1. Buka **[github.com/settings/developers](https://github.com/settings/developers)** → *OAuth Apps* → **New OAuth App**
-2. Isi:
-   | Kolom | Nilai (pengembangan) |
-   |---|---|
-   | Application name | Blogspot (dev) |
-   | Homepage URL | `http://localhost:3000` |
-   | Authorization callback URL | `http://localhost:3000/api/auth/callback/github` |
-3. **Register application** → **Generate a new client secret**
-4. Salin *Client ID* dan *Client secret*
+```bash
+pnpm hash-password
+```
 
-> Untuk produksi, buat OAuth App **terpisah** dengan domain asli pada kedua URL di atas. Satu app tidak bisa melayani dua domain.
+Perintah ini meminta kata sandi (minimal 12 karakter, tidak ditampilkan di layar) lalu mencetak satu baris:
+
+```
+OWNER_PASSWORD_HASH='scrypt$32768$8$1$...'
+```
+
+Salin baris itu ke `.env` dan ke Environment Variables Vercel. **Kata sandi mentah tidak pernah disimpan di mana pun** — yang tersimpan hanya hash scrypt bergaram. Ganti kata sandi = jalankan ulang perintah ini lalu perbarui nilai env (butuh redeploy di produksi).
+
+> Lupa kata sandi tidak bisa dipulihkan lewat surel — tidak ada alur reset. Buat hash baru dan ganti env-nya.
 
 ---
 
@@ -64,14 +66,13 @@ cp .env.example .env
 | `DIRECT_URL` | ✅ | Neon, direct — untuk migrasi |
 | `AUTH_SECRET` | ✅ | Hasilkan: `openssl rand -base64 32` |
 | `AUTH_URL` | ✅ | `http://localhost:3000` |
-| `AUTH_GITHUB_ID` | ✅ | Dari langkah 3 |
-| `AUTH_GITHUB_SECRET` | ✅ | Dari langkah 3 |
-| `OWNER_EMAILS` | ✅ | Email GitHub Anda. **Hanya email di daftar ini yang memperoleh peran OWNER** |
+| `OWNER_EMAIL` | ✅ | Email untuk masuk. **Hanya email ini yang memperoleh peran OWNER** |
+| `OWNER_PASSWORD_HASH` | ✅ | Keluaran `pnpm hash-password` dari langkah 3 |
 | `NEXT_PUBLIC_SITE_URL` | ✅ | URL kanonik; dipakai sitemap, RSS, dan OG image |
 | `BLOB_READ_WRITE_TOKEN` | — | Vercel Blob. Tanpa ini, unggah gambar dinonaktifkan (fitur lain tetap jalan) |
 | `CRON_SECRET` | — | Melindungi `/api/cron/publish`. Wajib bila memakai penjadwalan terbit |
 
-> ⚠ `OWNER_EMAILS` wajib memakai email yang **terverifikasi di GitHub**. Email yang tidak terdaftar di sini akan masuk sebagai `READER` dan ditolak di `/admin` — ini disengaja (BRULE-01).
+> ⚠ `OWNER_EMAIL` dan `OWNER_PASSWORD_HASH` **wajib terisi di produksi** — aplikasi sengaja menolak start tanpa keduanya, karena tanpa itu tidak ada akun yang bisa menjadi OWNER (BRULE-01, `E-CFG-01`). Di Vercel ini berarti **build-nya gagal**, bukan situs yang jalan tapi tak bisa dimasuki.
 >
 > ⚠ `.env` sudah masuk `.gitignore`. Jangan pernah commit berkas ini.
 
@@ -102,7 +103,7 @@ Buka `http://localhost:3000`, lalu masuk lewat `http://localhost:3000/login`.
 |---|---|
 | `pnpm typecheck` | tanpa galat |
 | `pnpm lint` | bersih |
-| `pnpm test:unit` | 65 tes lulus |
+| `pnpm test:unit` | 86 tes lulus |
 | `pnpm test:integration` | 18 tes lulus (butuh `DATABASE_URL`) |
 | `pnpm build` | sukses; rute publik bertanda `○`/`●`, bukan `ƒ` |
 
@@ -114,7 +115,7 @@ Buka `http://localhost:3000`, lalu masuk lewat `http://localhost:3000/login`.
 
 1. Hubungkan repo ke Vercel (framework terdeteksi otomatis).
 2. Isi seluruh variabel lingkungan di *Project Settings → Environment Variables*, dengan `AUTH_URL` dan `NEXT_PUBLIC_SITE_URL` memakai domain produksi.
-3. Buat OAuth App produksi (lihat catatan di langkah 3).
+3. `OWNER_EMAIL` dan `OWNER_PASSWORD_HASH` **wajib sudah terisi sebelum deploy pertama** — tanpa keduanya build gagal dengan `E-CFG-01`, bukan sekadar situs yang tak bisa dimasuki.
 4. **Migrasi dijalankan sebagai langkah CI terpisah**, bukan di perintah build — build paralel dapat berlomba mengubah skema yang sama (TRD TS-11 §11.4). Sudah terpasang di [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): setiap push ke `main` menjalankan typecheck, lint, dan uji lebih dulu, baru `prisma migrate deploy` dalam satu antrean tunggal. Isi dua secret repositori di *Settings → Secrets and variables → Actions*:
 
    | Secret | Isi |
@@ -143,8 +144,9 @@ Buka `http://localhost:3000`, lalu masuk lewat `http://localhost:3000/login`.
 | Gejala | Sebab & solusi |
 |---|---|
 | `Cannot resolve environment variable: DIRECT_URL` | `.env` belum ada atau `DIRECT_URL` kosong |
-| Tombol masuk tidak muncul | `AUTH_GITHUB_ID`/`SECRET` kosong — halaman login sengaja menampilkan penjelasan, bukan tombol yang diam-diam gagal |
-| Masuk berhasil tapi ditolak di `/admin` | Email Anda tidak ada di `OWNER_EMAILS`, atau belum terverifikasi di GitHub |
-| `redirect_uri_mismatch` | Callback URL di OAuth App tidak sama persis dengan `AUTH_URL` + `/api/auth/callback/github` |
+| Form masuk tidak muncul | `OWNER_EMAIL` atau `OWNER_PASSWORD_HASH` kosong — halaman login sengaja menampilkan penjelasan, bukan form yang diam-diam gagal |
+| Build produksi gagal `E-CFG-01` | `OWNER_EMAIL`/`OWNER_PASSWORD_HASH` belum diisi di Environment Variables Vercel |
+| "Email atau kata sandi salah" padahal yakin benar | Hash disalin tidak utuh. Nilainya memuat `$` — bungkus dengan kutip tunggal di `.env`, dan tempel apa adanya di Vercel |
+| Masuk berhasil tapi ditolak di `/admin` | `OWNER_EMAIL` berbeda dari email yang Anda ketik saat masuk |
 | Unggah gambar gagal | `BLOB_READ_WRITE_TOKEN` belum diisi |
 | Prisma memperingatkan versi Node | Node 26 di luar daftar dukungan resmi Prisma 7, namun terverifikasi berjalan normal |
