@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Typecheck · Lint · Uji
+    runs-on: ubuntu-latest
+    env:
+      # Diangkat ke tingkat job agar langkah uji integrasi bisa memeriksa
+      # keberadaannya lewat konteks `env` — `secrets` tidak tersedia di `if` langkah.
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Klien Prisma tidak ikut masuk repositori; typecheck butuh tipe hasilnya.
+      - run: pnpm db:generate
+
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test:unit
+
+      # Uji integrasi butuh basis data sungguhan. Dilewati — bukan digagalkan —
+      # bila secret tidak tersedia, mis. pada PR dari fork.
+      - name: Uji integrasi
+        if: env.DATABASE_URL != ''
+        run: pnpm test:integration
+
+  migrate:
+    name: Terapkan migrasi basis data
+    # TRD TS-11 §11.4: `prisma migrate deploy` TIDAK BOLEH berada di perintah build
+    # Vercel — build berjalan paralel dan dapat berlomba mengubah skema yang sama.
+    # Di sini ia menjadi satu langkah tunggal yang berurutan.
+    needs: checks
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # Satu eksekusi migrasi pada satu waktu; antrean, bukan dibatalkan di tengah jalan.
+    concurrency:
+      group: migrate-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: pnpm db:deploy

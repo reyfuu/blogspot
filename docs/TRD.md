@@ -458,7 +458,7 @@ sequenceDiagram
 |---|---|---|---|
 | 1 | **Middleware** pada `/admin/*` | Navigasi halaman | Cepat, tetapi **bukan** satu-satunya pertahanan |
 | 2 | **Pemeriksaan di layout `/admin`** (server) | Render server component | Memastikan data tidak pernah diambil untuk non-owner |
-| 3 | **Pemeriksaan di setiap Server Action / Route Handler** | Seluruh mutasi | **Lapisan yang menentukan** — middleware dapat dilewati oleh permintaan langsung |
+| 3 | **Pemeriksaan di setiap Server Action / Route Handler** | Seluruh mutasi | **Lapisan yang menentukan** — proxy dapat dilewati oleh permintaan langsung |
 
 > **Aturan implementasi:** setiap Server Action yang bermutasi **wajib** diawali pemeriksaan sesi + peran. Tidak ada pengecualian, bahkan untuk aksi yang tampaknya tidak berbahaya. Ini penegakan P3 dan BR-07.
 
@@ -701,7 +701,7 @@ Artinya pemisahan server/klien bekerja sebagaimana dirancang: editor, pewarna si
 | Tahap | Perintah | Lokasi |
 |---|---|---|
 | Hasilkan client | `prisma generate` | Build Vercel (aman, idempoten) |
-| Terapkan migrasi | `prisma migrate deploy` | **Langkah CI tersendiri** sebelum promosi deployment |
+| Terapkan migrasi | `prisma migrate deploy` | **Langkah CI tersendiri** sebelum promosi deployment — job `migrate` di `.github/workflows/ci.yml`, bergantung pada job `checks` dan dibatasi satu antrean (`concurrency: migrate-production`) |
 | Pengembangan | `prisma migrate dev` | Mesin lokal terhadap branch Neon pengembangan |
 
 **Aturan kompatibilitas:** migrasi harus *expand-then-contract* — tambah kolom nullable dulu, isi data, baru hapus kolom lama di rilis terpisah. Ini mencegah downtime saat versi lama dan baru berjalan berdampingan.

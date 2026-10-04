@@ -310,7 +310,7 @@ stateDiagram-v2
 | **Aturan** | **BRULE-13:** URL artikel `ARCHIVED` harus memberi sinyal de-indeks yang eksplisit kepada mesin pencari — bukan 404 yang ambigu |
 
 > **⚠ Deviasi implementasi (BRULE-13).** Next.js 16 hanya menyediakan `notFound()`, `forbidden()`, dan `unauthorized()` — yaitu 404/403/401. **Tidak ada API untuk mengirim 410 dari page component.**
-> Mitigasi yang terpasang: halaman penjelas khusus ("Tulisan ini sudah diarsipkan") + `robots: noindex` lewat `generateMetadata` + header `X-Robots-Tag: noindex` dari middleware. Sinyal de-indeks tetap tegas dan tidak tertukar dengan halaman hilang biasa, meski kode statusnya 200.
+> Mitigasi yang terpasang: halaman penjelas khusus ("Tulisan ini sudah diarsipkan") + `robots: noindex` lewat `generateMetadata` + header `X-Robots-Tag: noindex` dari proxy (`src/proxy.ts`). Sinyal de-indeks tetap tegas dan tidak tertukar dengan halaman hilang biasa, meski kode statusnya 200.
 > Akan ditinjau ulang bila Next.js menambahkan dukungan status kustom.
 
 ### FR-029 · Pratinjau draf bertoken

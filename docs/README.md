@@ -105,6 +105,7 @@ Aplikasi v1 sudah dibangun mengikuti dokumen ini. Beberapa hal **berbeda dari re
 | Paginasi | `?page=2` | **`/archive/page/2`** — agar halaman tetap statis | FRD FR-053 |
 | Anggaran JS | < 120 KB | **174 KB baseline framework**; JS aplikasi hanya ±6 KB | TRD TS-10 §10.3 |
 | Versi Next.js | 15 | **16.3.8** | TRD §Versi terpasang |
+| Lapis otorisasi 1 | `middleware.ts` | **`proxy.ts`** — konvensi `middleware` usang di Next 16; perilaku identik | TRD TS-05 §5.2 |
 | Prisma | `latest` | **dipin 7.10.0** — `latest` menunjuk RC 8 | TRD §Versi terpasang |
 
 ## Catatan Verifikasi

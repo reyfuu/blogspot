@@ -115,7 +115,14 @@ Buka `http://localhost:3000`, lalu masuk lewat `http://localhost:3000/login`.
 1. Hubungkan repo ke Vercel (framework terdeteksi otomatis).
 2. Isi seluruh variabel lingkungan di *Project Settings → Environment Variables*, dengan `AUTH_URL` dan `NEXT_PUBLIC_SITE_URL` memakai domain produksi.
 3. Buat OAuth App produksi (lihat catatan di langkah 3).
-4. **Migrasi dijalankan sebagai langkah CI terpisah**, bukan di perintah build — build paralel dapat berlomba mengubah skema yang sama (TRD TS-11 §11.4).
+4. **Migrasi dijalankan sebagai langkah CI terpisah**, bukan di perintah build — build paralel dapat berlomba mengubah skema yang sama (TRD TS-11 §11.4). Sudah terpasang di [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): setiap push ke `main` menjalankan typecheck, lint, dan uji lebih dulu, baru `prisma migrate deploy` dalam satu antrean tunggal. Isi dua secret repositori di *Settings → Secrets and variables → Actions*:
+
+   | Secret | Isi |
+   |---|---|
+   | `DATABASE_URL` | Koneksi terkumpul (pooled) Neon produksi |
+   | `DIRECT_URL` | Koneksi langsung Neon produksi — dipakai Prisma untuk migrasi |
+
+   > Tanpa kedua secret itu, job `migrate` gagal dan uji integrasi dilewati diam-diam (disengaja, agar PR dari fork tidak gagal). Bila ingin migrasi produksi menunggu persetujuan manual, tambahkan `environment: production` pada job `migrate` lalu pasang *required reviewers* di pengaturan environment.
 5. Penjadwalan terbit sudah dideklarasikan di [`vercel.json`](../vercel.json) — Vercel Cron memanggil `/api/cron/publish` tiap 15 menit (BRULE-10). Vercel mengirim header `Authorization: Bearer $CRON_SECRET` secara otomatis selama `CRON_SECRET` terisi di Environment Variables; tanpa itu endpoint menolak dengan 401.
 
 > **Paket Hobby membatasi cron menjadi sekali sehari.** Bila deploy ditolak atau cron hanya jalan harian, pilih salah satu: naik ke paket Pro, atau ubah `schedule` di `vercel.json` menjadi harian (mis. `"0 1 * * *"`) dan terima keterlambatan terbit terjadwal hingga 24 jam — ini menyimpang dari BRULE-10 dan perlu dicatat. Kelayakan Hobby sendiri masih bergantung pada **OQ-4** (apakah blog dipakai komersial).

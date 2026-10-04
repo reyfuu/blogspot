@@ -66,7 +66,7 @@ export default async function PostPage({ params }: Params) {
   // BRULE-13 menetapkan 410 Gone. KETERBATASAN PLATFORM: Next.js 16 hanya
   // menyediakan notFound()/forbidden()/unauthorized() (404/403/401) — tidak ada
   // API untuk mengirim 410 dari page component. Mitigasi: halaman penjelas
-  // eksplisit + robots noindex (generateMetadata) + X-Robots-Tag dari middleware,
+  // eksplisit + robots noindex (generateMetadata) + X-Robots-Tag dari proxy,
   // sehingga mesin pencari tetap menerima sinyal de-indeks yang tegas.
   // Deviasi ini dicatat di docs/FRD.md BRULE-13.
   if (result.kind === 'gone') return <GoneNotice />

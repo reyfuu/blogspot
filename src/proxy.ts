@@ -3,14 +3,16 @@ import { NextResponse, type NextRequest } from 'next/server'
 /**
  * Otorisasi lapis 1 — TRD TS-05 §5.2.
  *
- * Hanya memeriksa KEBERADAAN cookie sesi, bukan isinya: middleware berjalan di
+ * Konvensi `proxy` menggantikan `middleware` sejak Next.js 16; perilakunya sama.
+ *
+ * Hanya memeriksa KEBERADAAN cookie sesi, bukan isinya: berkas ini berjalan di
  * edge tanpa akses basis data. Verifikasi peran yang sesungguhnya dilakukan di
  * layout /admin (lapis 2) dan di setiap Server Action (lapis 3).
  * Lapisan ini murni pengalaman pengguna — bukan batas keamanan.
  */
 const SESSION_COOKIES = ['authjs.session-token', '__Secure-authjs.session-token']
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl
   const res = NextResponse.next()
 
