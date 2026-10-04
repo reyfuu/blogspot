@@ -547,6 +547,10 @@ Gambar Open Graph dibuat otomatis per artikel berisi judul, nama blog, dan eleme
 
 > **Error** — Pembuatan gambar gagal → gunakan gambar OG bawaan situs, **jangan** sampai menggagalkan render halaman (`E-SEO-01`)
 
+**Catatan implementasi.** Sampul dipakai sebagai **latar**, bukan menggantikan seluruh gambar: judul, nama blog, dan lama baca tetap ditulis di atasnya dengan peredup gradien dan bayangan teks, sehingga pratinjau tetap membawa identitas situs pada sampul seterang apa pun. Sampul diambil lebih dulu dan disematkan sebagai data URI (`src/lib/og-image.ts`) — hanya skema `http`/`https` dan jalur absolut yang diterima, dengan batas 8 MB dan tenggat 5 detik. Sampul yang tidak terjangkau, bukan gambar, atau terlalu besar membuat gambar mundur ke kartu judul tanpa menggagalkan build (`E-SEO-01`).
+
+Halaman non-artikel (beranda, arsip, `/tag`, pencarian, tentang) memakai gambar OG bawaan situs berisi nama blog dan tagline (`src/app/opengraph-image.tsx`).
+
 ### FR-062 · Sitemap
 > Memenuhi US-032 · BR-04
 
