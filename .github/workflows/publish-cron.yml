@@ -1,0 +1,41 @@
+name: Terbitkan artikel terjadwal
+
+# BRULE-10 menuntut interval <= 15 menit, tetapi paket Vercel Hobby membatasi
+# cron menjadi sekali sehari. Vercel Cron di vercel.json tetap ada sebagai
+# jaring pengaman harian; penjadwal inilah yang memenuhi BRULE-10 tanpa Pro.
+#
+# Endpoint ini idempoten — dipanggil dua penjadwal sekaligus tidak masalah.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  # Tombol manual, berguna untuk menguji penyiapan secret.
+  workflow_dispatch:
+
+concurrency:
+  group: publish-cron
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      SITE_URL: ${{ secrets.PRODUCTION_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Panggil /api/cron/publish
+        # Diam bila belum disiapkan, supaya fork dan repo yang baru di-clone
+        # tidak dibanjiri notifikasi kegagalan.
+        if: env.SITE_URL != '' && env.CRON_SECRET != ''
+        run: |
+          set -euo pipefail
+          response=$(mktemp)
+          code=$(curl -sS -o "$response" -w '%{http_code}' \
+            --max-time 30 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${SITE_URL%/}/api/cron/publish")
+          echo "HTTP $code"
+          cat "$response"
+          echo
+          # 401 berarti CRON_SECRET tidak cocok — itu kesalahan penyiapan, bukan
+          # keadaan sementara, jadi harus terlihat sebagai kegagalan.
+          test "$code" = "200"

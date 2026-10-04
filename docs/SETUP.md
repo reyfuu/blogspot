@@ -123,9 +123,18 @@ Buka `http://localhost:3000`, lalu masuk lewat `http://localhost:3000/login`.
    | `DIRECT_URL` | Koneksi langsung Neon produksi — dipakai Prisma untuk migrasi |
 
    > Tanpa kedua secret itu, job `migrate` gagal dan uji integrasi dilewati diam-diam (disengaja, agar PR dari fork tidak gagal). Bila ingin migrasi produksi menunggu persetujuan manual, tambahkan `environment: production` pada job `migrate` lalu pasang *required reviewers* di pengaturan environment.
-5. Penjadwalan terbit sudah dideklarasikan di [`vercel.json`](../vercel.json) — Vercel Cron memanggil `/api/cron/publish` tiap 15 menit (BRULE-10). Vercel mengirim header `Authorization: Bearer $CRON_SECRET` secara otomatis selama `CRON_SECRET` terisi di Environment Variables; tanpa itu endpoint menolak dengan 401.
+5. Penjadwalan terbit memakai **dua penjadwal**, karena paket Vercel Hobby **menolak deploy** bila `vercel.json` memuat cron yang berjalan lebih dari sekali sehari:
 
-> **Paket Hobby membatasi cron menjadi sekali sehari.** Bila deploy ditolak atau cron hanya jalan harian, pilih salah satu: naik ke paket Pro, atau ubah `schedule` di `vercel.json` menjadi harian (mis. `"0 1 * * *"`) dan terima keterlambatan terbit terjadwal hingga 24 jam — ini menyimpang dari BRULE-10 dan perlu dicatat. Kelayakan Hobby sendiri masih bergantung pada **OQ-4** (apakah blog dipakai komersial).
+   | Penjadwal | Berkas | Interval | Peran |
+   |---|---|---|---|
+   | Vercel Cron | [`vercel.json`](../vercel.json) | `0 1 * * *` (08:00 WIB) | Jaring pengaman harian; aman di Hobby |
+   | GitHub Actions | [`publish-cron.yml`](../.github/workflows/publish-cron.yml) | `*/15 * * * *` | Pemenuh BRULE-10 yang sesungguhnya, gratis |
+
+   Vercel mengirim header `Authorization: Bearer $CRON_SECRET` secara otomatis selama `CRON_SECRET` terisi di Environment Variables. Untuk penjadwal GitHub, isi dua secret repositori: `PRODUCTION_URL` (mis. `https://blog.contoh.com`) dan `CRON_SECRET` — **nilainya harus sama persis** dengan yang di Vercel, kalau tidak endpoint menjawab 401. Endpoint ini idempoten, jadi dipanggil dua penjadwal sekaligus tidak masalah.
+
+   > Bila kedua secret belum diisi, workflow-nya diam saja — tidak gagal. Jalankan manual lewat tab *Actions → Terbitkan artikel terjadwal → Run workflow* untuk menguji penyiapan.
+   >
+   > Penjadwal GitHub Actions gratis **tidak dijamin tepat waktu** (kerap melar saat beban tinggi) dan otomatis nonaktif setelah repositori 60 hari tanpa aktivitas. Bila ketepatan terbit itu penting, naik ke Vercel Pro lalu kembalikan `vercel.json` ke `*/15 * * * *` dan hapus workflow ini. Kelayakan Hobby sendiri bergantung pada **OQ-4** (apakah blog dipakai komersial).
 
 ---
 
