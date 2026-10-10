@@ -63,8 +63,8 @@ cp .env.example .env
 | Variabel | Wajib | Keterangan |
 |---|:---:|---|
 | `DATABASE_URL` | ✅ | Neon, pooled |
-| `DIRECT_URL` | ✅ | Neon, direct — untuk migrasi |
-| `AUTH_SECRET` | ✅ | Hasilkan: `openssl rand -base64 32` |
+| `DIRECT_URL` | ✅ | Neon, direct — untuk migrasi. Build Vercel tidak memakainya, tetapi CI migrasi wajib punya |
+| `AUTH_SECRET` | ✅ | Hasilkan: `openssl rand -base64 32`. **Wajib di produksi** — build gagal tanpa ini |
 | `AUTH_URL` | ✅ | `http://localhost:3000` |
 | `OWNER_EMAIL` | ✅ | Email untuk masuk. **Hanya email ini yang memperoleh peran OWNER** |
 | `OWNER_PASSWORD_HASH` | ✅ | Keluaran `pnpm hash-password` dari langkah 3 |
@@ -150,3 +150,7 @@ Buka `http://localhost:3000`, lalu masuk lewat `http://localhost:3000/login`.
 | Masuk berhasil tapi ditolak di `/admin` | `OWNER_EMAIL` berbeda dari email yang Anda ketik saat masuk |
 | Unggah gambar gagal | `BLOB_READ_WRITE_TOKEN` belum diisi |
 | Prisma memperingatkan versi Node | Node 26 di luar daftar dukungan resmi Prisma 7, namun terverifikasi berjalan normal |
+| Deploy Vercel gagal: `PrismaConfigEnvError: Cannot resolve environment variable: DIRECT_URL` | Versi lama `prisma.config.ts` menuntut `DIRECT_URL` saat `prisma generate` — langkah pertama build. Sudah diperbaiki: kini mundur ke `DATABASE_URL`. Pastikan memakai commit terbaru |
+| Deploy Vercel gagal: `[E-CFG-01] OWNER_EMAIL atau OWNER_PASSWORD_HASH kosong` | Variabelnya belum diisi di *Project Settings → Environment Variables*. Ini disengaja — lebih baik build gagal daripada situs jalan tapi tak bisa dimasuki |
+| Deploy Vercel gagal: `[E-CFG-01] AUTH_SECRET kosong` | Isi `AUTH_SECRET` di Vercel. Tanpa ini sesi tidak bisa ditandatangani |
+| Build lokal `pnpm build` gagal `E-CFG-01` padahal `pnpm dev` jalan | `pnpm build` memakai `NODE_ENV=production`, jadi guard-nya aktif. Tambahkan `OWNER_EMAIL`, `OWNER_PASSWORD_HASH`, dan `AUTH_SECRET` ke `.env` lokal |

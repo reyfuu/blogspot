@@ -38,12 +38,23 @@ export const OWNER_EMAIL = env.OWNER_EMAIL.trim().toLowerCase()
 /** Masuk hanya mungkin bila email DAN hash kata sandi sama-sama terisi. */
 export const isAuthConfigured = Boolean(OWNER_EMAIL && env.OWNER_PASSWORD_HASH)
 
-if (env.NODE_ENV === 'production' && !isAuthConfigured) {
-  throw new Error(
-    '[E-CFG-01] OWNER_EMAIL atau OWNER_PASSWORD_HASH kosong di produksi. ' +
-      'Tanpa keduanya tidak ada akun yang bisa menjadi OWNER (BRULE-01). ' +
-      'Hasilkan hash dengan: pnpm hash-password',
-  )
+if (env.NODE_ENV === 'production') {
+  if (!isAuthConfigured) {
+    throw new Error(
+      '[E-CFG-01] OWNER_EMAIL atau OWNER_PASSWORD_HASH kosong di produksi. ' +
+        'Tanpa keduanya tidak ada akun yang bisa menjadi OWNER (BRULE-01). ' +
+        'Hasilkan hash dengan: pnpm hash-password',
+    )
+  }
+  // Auth.js menandatangani sesi JWT dengan rahasia ini. Tanpa itu build tetap
+  // lolos tetapi SETIAP permintaan ke jalur auth gagal di produksi — lebih baik
+  // ketahuan saat build daripada di depan pengguna.
+  if (!env.AUTH_SECRET) {
+    throw new Error(
+      '[E-CFG-01] AUTH_SECRET kosong di produksi. Sesi tidak dapat ditandatangani. ' +
+        'Hasilkan dengan: openssl rand -base64 32',
+    )
+  }
 }
 
 export const isBlobConfigured = Boolean(env.BLOB_READ_WRITE_TOKEN)
