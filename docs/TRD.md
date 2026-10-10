@@ -466,7 +466,7 @@ sequenceDiagram
 
 ### 5.4 Penetapan owner
 
-Blog ini single-author: **satu** email owner dibaca dari `OWNER_EMAIL`, dan kata sandinya diverifikasi terhadap `OWNER_PASSWORD_HASH`. Aplikasi **menolak start di produksi** bila salah satunya kosong (`E-CFG-01`). Tidak ada halaman pendaftaran sama sekali, sehingga BRULE-01 dijaga oleh konstruksi, bukan oleh pemeriksaan.
+Blog ini single-author: **satu** email owner dibaca dari `OWNER_EMAIL`, dan kata sandinya diverifikasi terhadap `OWNER_PASSWORD_HASH`. Bila salah satunya — atau `AUTH_SECRET` — kosong di produksi, aplikasi **memperingatkan** di log dengan menyebut variabel mana yang kosong (`E-CFG-01`), tetapi tidak menolak start: nilai-nilai ini hanya dibutuhkan untuk *masuk*, bukan untuk membangun atau menyajikan situs. Jalur anggunnya sudah ada — `isAuthConfigured` bernilai false membuat `getSessionUser()` menjawab anonim tanpa menyentuh Auth.js, `/login` menampilkan penjelasan, dan `/admin` tetap tertutup. Tidak ada halaman pendaftaran sama sekali, sehingga BRULE-01 dijaga oleh konstruksi, bukan oleh pemeriksaan.
 
 **Hash kata sandi.** `scrypt` dari pustaka standar Node (`N=32768, r=8, p=1`, garam 16 bait, kunci 32 bait), bukan bcrypt/argon2 — keduanya modul native yang perlu dikompilasi saat build. String tersimpan memuat parameternya sendiri (`scrypt$N$r$p$garam$hash`) agar biaya dapat dinaikkan tanpa mematahkan hash lama. Perbandingan memakai `timingSafeEqual`.
 

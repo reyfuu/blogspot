@@ -109,6 +109,7 @@ Aplikasi v1 sudah dibangun mengikuti dokumen ini. Beberapa hal **berbeda dari re
 | Autentikasi | OAuth GitHub | **Email + kata sandi owner** (scrypt), tanpa pihak ketiga | TRD TS-05 §5.4 |
 | Strategi sesi | Sesi di basis data | **JWT** — provider Credentials Auth.js tidak mendukung strategi `database` | TRD TS-05 §5.3 |
 | Akun pembaca | Pembaca bisa mendaftar (US-005) | **Dibatalkan** — pembaca hanya membaca dan berkomentar sebagai tamu | PRD §5 |
+| Kredensial owner kosong | Aplikasi menolak start (`E-CFG-01`) | **Peringatan, bukan kegagalan** — nilainya tidak dibutuhkan untuk membangun situs; situs publik tetap tayang dan `/login` menjelaskan sendiri | TRD TS-05 §5.4 |
 | Prisma | `latest` | **dipin 7.10.0** — `latest` menunjuk RC 8 | TRD §Versi terpasang |
 
 ## Catatan Verifikasi

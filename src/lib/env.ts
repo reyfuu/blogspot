@@ -35,26 +35,57 @@ export const env = parsed.data
 /** Email owner, dinormalisasi. String kosong berarti belum dikonfigurasi. */
 export const OWNER_EMAIL = env.OWNER_EMAIL.trim().toLowerCase()
 
-/** Masuk hanya mungkin bila email DAN hash kata sandi sama-sama terisi. */
-export const isAuthConfigured = Boolean(OWNER_EMAIL && env.OWNER_PASSWORD_HASH)
+/**
+ * Masuk hanya mungkin bila ketiganya terisi.
+ *
+ * AUTH_SECRET ikut dihitung: tanpa rahasia itu Auth.js melempar pada setiap
+ * permintaan, sehingga /login akan 500 alih-alih menampilkan penjelasan.
+ * Dianggap "belum dikonfigurasi" membuat halaman itu tetap bisa menjelaskan.
+ */
+export const isAuthConfigured = Boolean(OWNER_EMAIL && env.OWNER_PASSWORD_HASH && env.AUTH_SECRET)
 
-if (env.NODE_ENV === 'production') {
-  if (!isAuthConfigured) {
-    throw new Error(
-      '[E-CFG-01] OWNER_EMAIL atau OWNER_PASSWORD_HASH kosong di produksi. ' +
-        'Tanpa keduanya tidak ada akun yang bisa menjadi OWNER (BRULE-01). ' +
-        'Hasilkan hash dengan: pnpm hash-password',
-    )
-  }
-  // Auth.js menandatangani sesi JWT dengan rahasia ini. Tanpa itu build tetap
-  // lolos tetapi SETIAP permintaan ke jalur auth gagal di produksi — lebih baik
-  // ketahuan saat build daripada di depan pengguna.
-  if (!env.AUTH_SECRET) {
-    throw new Error(
-      '[E-CFG-01] AUTH_SECRET kosong di produksi. Sesi tidak dapat ditandatangani. ' +
-        'Hasilkan dengan: openssl rand -base64 32',
-    )
-  }
+/** Variabel yang dibutuhkan agar owner bisa masuk, beserta cara membuatnya. */
+const KREDENSIAL_OWNER: ReadonlyArray<readonly [nama: string, terisi: boolean, cara: string]> = [
+  ['OWNER_EMAIL', Boolean(OWNER_EMAIL), 'email yang Anda pakai untuk masuk'],
+  ['OWNER_PASSWORD_HASH', Boolean(env.OWNER_PASSWORD_HASH), 'jalankan: pnpm hash-password'],
+  ['AUTH_SECRET', Boolean(env.AUTH_SECRET), 'jalankan: openssl rand -base64 32'],
+]
+
+/**
+ * E-CFG-01 — laporan konfigurasi yang menyebut variabelnya satu per satu.
+ *
+ * Pesan lama hanya berkata "OWNER_EMAIL atau OWNER_PASSWORD_HASH kosong",
+ * sehingga tidak mungkin tahu yang mana — dan sebuah nilai yang salah tempel
+ * (mis. ikut tanda kutip) terbaca "terisi" padahal tidak akan pernah cocok.
+ * Hanya status terisi/kosong yang dicetak; nilainya tidak pernah ikut.
+ */
+function laporanKonfigurasi(): string {
+  const baris = KREDENSIAL_OWNER.map(
+    ([nama, terisi, cara]) => `  ${terisi ? '✓ terisi ' : '✗ KOSONG '} ${nama}${terisi ? '' : ` — ${cara}`}`,
+  )
+  return [
+    '[E-CFG-01] Kredensial owner belum lengkap di produksi.',
+    ...baris,
+    '',
+    '  Isi di Vercel: Settings → Environment Variables.',
+    '  Centang Production, Preview, dan Development — variabel yang',
+    '  hanya dicentang pada satu environment tidak terbaca di environment lain.',
+    '  Tempel hash TANPA tanda kutip; kutip hanya untuk berkas .env.',
+  ].join('\n')
+}
+
+// Diperingatkan, bukan dilemparkan. Dua alasan:
+//
+// 1. Nilai-nilai ini tidak dibutuhkan untuk MEMBANGUN situs, hanya untuk masuk.
+//    Menggagalkan build memblokir seluruh deploy — termasuk bagian publik yang
+//    sudah siap tayang.
+// 2. `env.ts` diimpor hampir seluruh halaman. Melempar saat runtime berarti
+//    setiap permintaan gagal, bukan hanya jalur masuk.
+//
+// Jalur yang anggun sudah ada: `isAuthConfigured` bernilai false membuat
+// /login menampilkan penjelasan apa adanya, dan situs publik tetap jalan.
+if (env.NODE_ENV === 'production' && !isAuthConfigured) {
+  console.warn(`\n${laporanKonfigurasi()}\n`)
 }
 
 export const isBlobConfigured = Boolean(env.BLOB_READ_WRITE_TOKEN)

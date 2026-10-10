@@ -1,4 +1,5 @@
 import { auth } from './auth'
+import { isAuthConfigured } from './env'
 import type { Role } from '@/generated/prisma/enums'
 
 /**
@@ -30,6 +31,10 @@ export type SessionUser = { id: string; email: string; role: Role; name?: string
 
 /** Mengembalikan pengguna sesi, atau null bila anonim. */
 export async function getSessionUser(): Promise<SessionUser | null> {
+  // Tanpa konfigurasi lengkap tidak ada sesi yang mungkin ada, dan memanggil
+  // Auth.js tanpa AUTH_SECRET justru melempar. Anonim adalah jawaban yang benar.
+  if (!isAuthConfigured) return null
+
   const session = await auth()
   const u = session?.user
   if (!u?.id || !u.email) return null

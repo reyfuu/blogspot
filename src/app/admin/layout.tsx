@@ -12,6 +12,16 @@ export const metadata: Metadata = {
 }
 
 /**
+ * BRULE-26 / TRD TS-01 §1.3: area admin tidak pernah diprerender.
+ *
+ * Sebelumnya sifat dinamis ini hanya efek samping — `auth()` membaca cookie,
+ * dan itulah yang membuat Next membatalkan prerender. Begitu pembacaan cookie
+ * tidak terjadi (mis. saat autentikasi belum dikonfigurasi), Next mencoba
+ * memprerender halaman admin dan build gagal. Dinyatakan eksplisit di sini.
+ */
+export const dynamic = 'force-dynamic'
+
+/**
  * Otorisasi lapis 2 — TRD TS-05 §5.2.
  *
  * Gerbang ini memastikan data administratif tidak pernah DIAMBIL untuk

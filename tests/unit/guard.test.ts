@@ -9,19 +9,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  */
 
 const mockAuth = vi.fn()
+// Dapat diubah per uji: getSessionUser harus menjawab anonim tanpa menyentuh
+// Auth.js sama sekali ketika autentikasi belum dikonfigurasi.
+const konfigurasi = vi.hoisted(() => ({ authSiap: true }))
+
 vi.mock('@/lib/auth', () => ({ auth: () => mockAuth() }))
 vi.mock('@/lib/db', () => ({ db: {} }))
 vi.mock('@/lib/env', () => ({
-  env: { NODE_ENV: 'test', OWNER_EMAILS: 'owner@test.id' },
-  OWNER_EMAILS: ['owner@test.id'],
-  isGitHubAuthConfigured: false,
+  env: { NODE_ENV: 'test', OWNER_EMAIL: 'owner@test.id', OWNER_PASSWORD_HASH: 'hash', AUTH_SECRET: 'rahasia' },
+  OWNER_EMAIL: 'owner@test.id',
+  get isAuthConfigured() {
+    return konfigurasi.authSiap
+  },
   isBlobConfigured: false,
   SITE_URL: 'http://localhost:3000',
 }))
 
 const { AuthorizationError, getSessionUser, isOwner, requireOwner, requireUser } = await import('@/lib/guard')
 
-beforeEach(() => mockAuth.mockReset())
+beforeEach(() => {
+  mockAuth.mockReset()
+  konfigurasi.authSiap = true
+})
 
 const asOwner = () => mockAuth.mockResolvedValue({ user: { id: 'u1', email: 'owner@test.id', role: 'OWNER' } })
 const asReader = () => mockAuth.mockResolvedValue({ user: { id: 'u2', email: 'reader@test.id', role: 'READER' } })
@@ -119,5 +128,24 @@ describe('aksi tag menolak non-owner (FR-084)', () => {
       const upToFirstAwait = body.slice(0, body.indexOf('const parsed'))
       expect(upToFirstAwait, `${name} tidak memanggil requireOwner lebih dulu`).toContain('requireOwner()')
     }
+  })
+})
+
+describe('autentikasi belum dikonfigurasi (E-CFG-01)', () => {
+  it('menjawab anonim tanpa memanggil Auth.js — tanpa AUTH_SECRET pemanggilan itu melempar', async () => {
+    konfigurasi.authSiap = false
+    asOwner() // sesi valid pun diabaikan: tanpa konfigurasi tidak ada sesi yang sah
+
+    await expect(getSessionUser()).resolves.toBeNull()
+    expect(mockAuth).not.toHaveBeenCalled()
+  })
+
+  it('tetap menolak owner-only, bukan membukanya', async () => {
+    konfigurasi.authSiap = false
+    asOwner()
+
+    await expect(isOwner()).resolves.toBe(false)
+    await expect(requireOwner()).rejects.toMatchObject({ code: 'E-AUTH-01' })
+    await expect(requireUser()).rejects.toMatchObject({ code: 'E-AUTH-01' })
   })
 })
