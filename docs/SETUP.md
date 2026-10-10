@@ -48,6 +48,12 @@ OWNER_PASSWORD_HASH='scrypt$32768$8$1$...'
 
 Salin baris itu ke `.env` dan ke Environment Variables Vercel. **Kata sandi mentah tidak pernah disimpan di mana pun** — yang tersimpan hanya hash scrypt bergaram. Ganti kata sandi = jalankan ulang perintah ini lalu perbarui nilai env (butuh redeploy di produksi).
 
+Untuk keperluan skrip, kata sandi juga bisa dialirkan lewat pipa — dua baris, sandi dan ulangannya:
+
+```bash
+printf 'sandi-anda\nsandi-anda\n' | pnpm hash-password
+```
+
 > Lupa kata sandi tidak bisa dipulihkan lewat surel — tidak ada alur reset. Buat hash baru dan ganti env-nya.
 
 ---
