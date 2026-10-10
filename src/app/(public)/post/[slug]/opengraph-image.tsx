@@ -3,6 +3,7 @@ import { getAllPublishedSlugs, lookupPostBySlug } from '@/lib/queries'
 import { getSettings } from '@/lib/settings'
 import { SITE_URL } from '@/lib/env'
 import { loadImageAsDataUri } from '@/lib/og-image'
+import { bacaUntukPrerender } from '@/lib/prerender'
 
 /**
  * FR-061: gambar pratinjau sosial otomatis per artikel.
@@ -13,7 +14,7 @@ export const size = { width: 1200, height: 630 }
 
 /** P1: gambar OG diprerender per artikel, bukan dibuat ulang tiap permintaan. */
 export async function generateStaticParams(): Promise<{ slug: string }[]> {
-  const slugs = await getAllPublishedSlugs()
+  const slugs = await bacaUntukPrerender('/post/[slug]/opengraph-image', getAllPublishedSlugs)
   return slugs.map((slug) => ({ slug }))
 }
 export const contentType = 'image/png'

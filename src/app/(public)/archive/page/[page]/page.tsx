@@ -1,13 +1,14 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getArchivePageCount, getPostsPage } from '@/lib/queries'
+import { bacaUntukPrerender } from '@/lib/prerender'
 import { ArchiveList, Pagination, archiveHref } from '@/components/archive-view'
 
 type Params = { params: Promise<{ page: string }> }
 
 /** Prerender setiap halaman arsip agar tidak ada yang dirender on-demand. */
 export async function generateStaticParams(): Promise<{ page: string }[]> {
-  const count = await getArchivePageCount()
+  const count = await bacaUntukPrerender('/archive/page/[page]', getArchivePageCount)
   // Halaman 1 disajikan oleh /archive.
   return Array.from({ length: Math.max(0, count - 1) }, (_, i) => ({ page: String(i + 2) }))
 }

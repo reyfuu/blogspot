@@ -7,6 +7,7 @@ import { renderMarkdown } from '@/lib/markdown'
 import { getSettings } from '@/lib/settings'
 import { formatDate } from '@/lib/format'
 import { SITE_URL } from '@/lib/env'
+import { bacaUntukPrerender } from '@/lib/prerender'
 import { CommentSection } from '@/components/comment-section'
 import { GoneNotice } from '@/components/gone-notice'
 
@@ -18,7 +19,7 @@ type Params = { params: Promise<{ slug: string }> }
  * pembaca menyentuh basis data — membatalkan BR-03 dan mitigasi cold start (R-2).
  */
 export async function generateStaticParams(): Promise<{ slug: string }[]> {
-  const slugs = await getAllPublishedSlugs()
+  const slugs = await bacaUntukPrerender('/post/[slug]', getAllPublishedSlugs)
   return slugs.map((slug) => ({ slug }))
 }
 

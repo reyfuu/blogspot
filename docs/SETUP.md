@@ -153,6 +153,8 @@ Buka `http://localhost:3000`, lalu masuk lewat `http://localhost:3000/login`.
 | Form masuk tidak muncul | `OWNER_EMAIL` atau `OWNER_PASSWORD_HASH` kosong — halaman login sengaja menampilkan penjelasan, bukan form yang diam-diam gagal |
 | Log build memuat `E-CFG-01 ✗ KOSONG <VARIABEL>` | Variabel itu belum terbaca saat build. Periksa centang *Production/Preview/Development* pada variabel tersebut di Vercel — centang yang hanya satu environment tidak terbaca di environment lain |
 | Situs tayang tapi `/login` berkata "belum dikonfigurasi" | Sama seperti di atas: salah satu dari `OWNER_EMAIL`, `OWNER_PASSWORD_HASH`, `AUTH_SECRET` kosong |
+| Deploy gagal: `[E-DB-01] Gagal membaca basis data saat memprerender …` | Build memprerender halaman publik, jadi `DATABASE_URL` harus bisa dihubungi pada tahap **Build**, bukan hanya runtime. Baris *Penyebab asli* di bawahnya menyebut masalah sesungguhnya (kredensial salah, host tidak ada, dsb.) |
+| Deploy gagal: `Failed to collect page data for …` tanpa penjelasan | Versi lama. Sejak `E-DB-01` dipasang, penyebab aslinya ikut tercetak. Pastikan memakai commit terbaru |
 | "Email atau kata sandi salah" padahal yakin benar | Hash disalin tidak utuh. Nilainya memuat `$` — bungkus dengan kutip tunggal di `.env`, dan tempel apa adanya di Vercel |
 | Masuk berhasil tapi ditolak di `/admin` | `OWNER_EMAIL` berbeda dari email yang Anda ketik saat masuk |
 | Unggah gambar gagal | `BLOB_READ_WRITE_TOKEN` belum diisi |

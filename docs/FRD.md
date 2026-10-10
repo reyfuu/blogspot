@@ -736,6 +736,7 @@ Perubahan pengaturan memicu revalidasi halaman publik yang terpengaruh.
 | `E-AUTH-02` | Email atau kata sandi salah | "Email atau kata sandi salah." | 400 |
 | `E-AUTH-04` | Bukan owner mengakses `/admin` | "Anda tidak memiliki akses ke halaman ini." | 403 |
 | `E-CFG-01` | Konfigurasi owner kosong di produksi | *(galat penyiapan, tidak tampil ke pengguna)* | 500 |
+| `E-DB-01` | Basis data tidak terbaca saat build | *(galat penyiapan, tidak tampil ke pengguna)* | — |
 | `E-POST-01` | Prasyarat terbit tidak lengkap | "Lengkapi dulu: {daftar bidang}." | 422 |
 | `E-POST-02` | Ringkasan melebihi batas | "Ringkasan maksimal 300 karakter." | 422 |
 | `E-POST-03` | Format slug tidak valid | "Slug hanya boleh berisi huruf kecil, angka, dan tanda hubung." | 422 |

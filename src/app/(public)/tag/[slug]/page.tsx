@@ -1,13 +1,14 @@
 import { notFound, permanentRedirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getAllActiveTagSlugs, getPostsByTag } from '@/lib/queries'
+import { bacaUntukPrerender } from '@/lib/prerender'
 import { Pagination, PostList, tagHref } from '@/components/archive-view'
 
 type Params = { params: Promise<{ slug: string }> }
 
 /** P1: prerender seluruh halaman tag yang punya artikel terbit (BRULE-09). */
 export async function generateStaticParams(): Promise<{ slug: string }[]> {
-  const slugs = await getAllActiveTagSlugs()
+  const slugs = await bacaUntukPrerender('/tag/[slug]', getAllActiveTagSlugs)
   return slugs.map((slug) => ({ slug }))
 }
 
