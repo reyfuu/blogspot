@@ -25,7 +25,7 @@
 
 **Dependensi yang dihapus:** `next-themes` — diganti skrip inline ±10 baris (`src/components/theme-script.tsx`). Pustaka tidak sepadan untuk perilaku sekecil ini.
 
-**Runtime:** Node v26.8.2; `engines.node` menuntut **>= 22.12**. Batas itu ditentukan driver Neon, bukan Prisma: koneksi pooled dibuka lewat WebSocket dan mengandalkan `globalThis.WebSocket` yang baru tersedia sejak Node 22. Di Node 20 kegagalannya tampil sebagai `prisma:error undefined` + `ErrorEvent` tanpa menyebut versi Node sama sekali — karena itu `src/lib/db.ts` memeriksanya di depan dan melempar `E-CFG-02` yang menjelaskan diri.
+**Runtime:** Node v26.8.2; `engines.node` menuntut **>= 22.12**. Batas itu ditentukan driver Neon, bukan Prisma: koneksi pooled dibuka lewat WebSocket dan mengandalkan `globalThis.WebSocket` yang baru ada sejak Node 22. Terukur di Node 20.20.2 — skrip Node polos (`db:seed`, `db:deploy`) gagal dengan *"All attempts to open a WebSocket… failed"*. **Build dan runtime Next tidak terdampak**: Next menyediakan WebSocket sendiri, dan `next build` terverifikasi sukses di Node 20. `src/lib/db.ts` memeriksanya di depan dan melempar `E-CFG-02` agar jalur skrip tidak gagal tanpa penjelasan.
 
 ---
 

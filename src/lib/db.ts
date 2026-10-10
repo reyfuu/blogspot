@@ -8,14 +8,16 @@ import { env } from './env'
  * Memakai koneksi pooled agar tidak kehabisan koneksi di runtime serverless.
  */
 /**
- * Driver Neon membuka koneksi pooled lewat **WebSocket**, dan mengandalkan
- * `globalThis.WebSocket` yang baru tersedia sejak Node 22 — di Node 20 objek itu
- * tidak ada. Kegagalannya tidak menyebut apa pun soal versi Node; yang muncul
- * hanyalah `prisma:error undefined` diikuti `ErrorEvent { type: 'error' }`,
- * lalu Next merangkumnya menjadi "Failed to collect page data".
+ * Driver Neon membuka koneksi pooled lewat **WebSocket** dan mengandalkan
+ * `globalThis.WebSocket`, yang baru tersedia sejak Node 22.
  *
- * Sangat mungkin terjadi di CI/hosting yang memilih versi Node lebih lama
- * daripada mesin pengembang, jadi diperiksa di depan.
+ * Yang terdampak adalah jalur **Node polos**: `pnpm db:seed`, `pnpm db:deploy`,
+ * dan skrip sekali jalan. Terukur di Node 20.20.2 — driver gagal dengan
+ * "All attempts to open a WebSocket to connect to the database failed".
+ *
+ * Build dan runtime Next TIDAK terdampak: Next menyediakan WebSocket-nya
+ * sendiri, dan `next build` terverifikasi sukses di Node 20. Pemeriksaan ini
+ * karena itu hanya menjaga jalur skrip, bukan jalur aplikasi.
  */
 function pastikanWebSocketTersedia(): void {
   if (typeof globalThis.WebSocket !== 'undefined') return
@@ -24,8 +26,7 @@ function pastikanWebSocketTersedia(): void {
       `[E-CFG-02] Node ${process.version} tidak menyediakan WebSocket bawaan,`,
       '  padahal driver Neon membutuhkannya untuk koneksi pooled.',
       '',
-      '  Pakai Node 22.12 atau lebih baru. Di Vercel: Settings → General →',
-      '  Node.js Version. Berkas package.json sudah menuntutnya lewat "engines".',
+      '  Pakai Node 22.12 atau lebih baru (lihat "engines" di package.json).',
     ].join('\n'),
   )
 }
