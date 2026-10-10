@@ -8,10 +8,12 @@ Panduan menyiapkan aplikasi dari nol. Perkiraan waktu: **10–15 menit**.
 
 | Kebutuhan | Versi teruji |
 |---|---|
-| Node.js | v26.8.2 (minimal 20.19) |
+| Node.js | v26.8.2 (**minimal 22.12**) |
 | pnpm | 10.33 |
 | Akun Neon | tier gratis |
 | Akun GitHub | untuk repositori & CI (bukan untuk masuk) |
+
+> Batas 22.12 bukan sekadar anjuran: driver Neon membuka koneksi lewat **WebSocket**, dan `globalThis.WebSocket` baru ada sejak Node 22. Di Node 20 koneksi basis data gagal tanpa pesan yang menyebut versi Node.
 
 ```bash
 pnpm install
@@ -119,7 +121,7 @@ Buka `http://localhost:3000`, lalu masuk lewat `http://localhost:3000/login`.
 
 ## 8. Deploy ke Vercel
 
-1. Hubungkan repo ke Vercel (framework terdeteksi otomatis).
+1. Hubungkan repo ke Vercel (framework terdeteksi otomatis), lalu pastikan **Settings → General → Node.js Version** disetel **22.x atau lebih baru**. Node 20 membuat koneksi Neon gagal saat build.
 2. Isi seluruh variabel lingkungan di *Project Settings → Environment Variables*, dengan `AUTH_URL` dan `NEXT_PUBLIC_SITE_URL` memakai domain produksi.
 3. Isi `OWNER_EMAIL`, `OWNER_PASSWORD_HASH`, dan `AUTH_SECRET`. Tanpa ketiganya deploy tetap jadi, tetapi Anda belum bisa masuk — periksa log build untuk peringatan `E-CFG-01` yang menyebut variabel mana yang kosong.
 4. **Migrasi dijalankan sebagai langkah CI terpisah**, bukan di perintah build — build paralel dapat berlomba mengubah skema yang sama (TRD TS-11 §11.4). Sudah terpasang di [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): setiap push ke `main` menjalankan typecheck, lint, dan uji lebih dulu, baru `prisma migrate deploy` dalam satu antrean tunggal. Isi dua secret repositori di *Settings → Secrets and variables → Actions*:
@@ -155,6 +157,8 @@ Buka `http://localhost:3000`, lalu masuk lewat `http://localhost:3000/login`.
 | Situs tayang tapi `/login` berkata "belum dikonfigurasi" | Sama seperti di atas: salah satu dari `OWNER_EMAIL`, `OWNER_PASSWORD_HASH`, `AUTH_SECRET` kosong |
 | Deploy gagal: `[E-DB-01] Gagal membaca basis data saat memprerender …` | Build memprerender halaman publik, jadi `DATABASE_URL` harus bisa dihubungi pada tahap **Build**, bukan hanya runtime. Baris *Penyebab asli* di bawahnya menyebut masalah sesungguhnya (kredensial salah, host tidak ada, dsb.) |
 | Deploy gagal: `Failed to collect page data for …` tanpa penjelasan | Versi lama. Sejak `E-DB-01` dipasang, penyebab aslinya ikut tercetak. Pastikan memakai commit terbaru |
+| Log build memuat `prisma:error undefined` lalu `ErrorEvent { type: 'error' }` | Versi Node terlalu lama. Itu kegagalan WebSocket — driver Neon butuh `globalThis.WebSocket` yang baru ada sejak Node 22. Setel Node.js Version di Vercel ke 22.x+ |
+| `[E-CFG-02] Node … tidak menyediakan WebSocket bawaan` | Sama seperti di atas, tetapi sudah terbaca jelas. Naikkan versi Node |
 | "Email atau kata sandi salah" padahal yakin benar | Hash disalin tidak utuh. Nilainya memuat `$` — bungkus dengan kutip tunggal di `.env`, dan tempel apa adanya di Vercel |
 | Masuk berhasil tapi ditolak di `/admin` | `OWNER_EMAIL` berbeda dari email yang Anda ketik saat masuk |
 | Unggah gambar gagal | `BLOB_READ_WRITE_TOKEN` belum diisi |

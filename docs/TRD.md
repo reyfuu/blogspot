@@ -25,7 +25,7 @@
 
 **Dependensi yang dihapus:** `next-themes` — diganti skrip inline ±10 baris (`src/components/theme-script.tsx`). Pustaka tidak sepadan untuk perilaku sekecil ini.
 
-**Runtime:** Node v26.8.2. Prisma CLI memperingatkan versi Node di luar daftar dukungannya (20.19+/22.12+/24.0+) namun berjalan normal — migrasi dan generate terverifikasi.
+**Runtime:** Node v26.8.2; `engines.node` menuntut **>= 22.12**. Batas itu ditentukan driver Neon, bukan Prisma: koneksi pooled dibuka lewat WebSocket dan mengandalkan `globalThis.WebSocket` yang baru tersedia sejak Node 22. Di Node 20 kegagalannya tampil sebagai `prisma:error undefined` + `ErrorEvent` tanpa menyebut versi Node sama sekali — karena itu `src/lib/db.ts` memeriksanya di depan dan melempar `E-CFG-02` yang menjelaskan diri.
 
 ---
 

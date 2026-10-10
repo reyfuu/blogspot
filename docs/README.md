@@ -36,7 +36,7 @@ BR-##  (BRD)  →  EP-## / US-###  (PRD)  →  FR-###  (FRD)  →  TS-##  (TRD)
 | `FR-###` | Requirement fungsional | FRD §4–§11 | 55 |
 | `BRULE-##` | Aturan bisnis | FRD (inline) · indeks di Lampiran B | 38 |
 | `TS-##` | Spesifikasi teknis | TRD | 16 |
-| `E-*` | Kode kesalahan | FRD §12 | 25 |
+| `E-*` | Kode kesalahan | FRD §12 | 26 |
 
 **Matriks keterlacakan utama** ada di [BRD §12](./BRD.md#12-matriks-keterlacakan). Pemetaan balik `TS → FR` ada di [TRD TS-16](./TRD.md#ts-16--keterlacakan-ts--fr).
 
